@@ -311,7 +311,8 @@ if (is_dir($projectDir)) {
         }
 
         function showProtected(token, created) {
-            const baseUrl = window.location.href.replace('admin/index.php', '') + 'projekt/';
+            // Robustly find root by splitting at /admin/
+            const baseUrl = window.location.href.split('/admin/')[0] + '/projekt/';
             // Clean URL construction: Base + ProjectName + /tour.html?token=...
             // Note: Project name needs encoding in URL
             const fullLink = baseUrl + encodeURIComponent(currentProject) + '/tour.html?token=' + token;

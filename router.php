@@ -92,7 +92,13 @@ if ($pos !== false) {
     // Access Granted (either protected-and-logged-in, or unprotected)
     // Inject Branding for HTML files
     if (preg_match('/\.html$/i', $path) && file_exists(__DIR__ . $path)) {
+        header('X-Debug-Branding: 1');
         $content = file_get_contents(__DIR__ . $path);
+        
+        // Calculate dynamic base path for assets
+        // If router.php is at /cms/router.php, dirname is /cms
+        $baseDir = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+        $logoPath = $baseDir . '/img/GRIT_LOGO.svg';
         
         $branding = '
         <div style="
@@ -115,7 +121,7 @@ if ($pos !== false) {
             text-transform: uppercase;
             letter-spacing: 1px;
         ">
-            <img src="../../img/GRIT_LOGO.svg" alt="GRIT Projects" style="height: 20px; filter: brightness(0) invert(1);">
+            <img src="' . $logoPath . '" alt="GRIT Projects" style="height: 20px; filter: brightness(0) invert(1);">
         </div>
         ';
         
