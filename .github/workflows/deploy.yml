@@ -18,7 +18,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./
           server-dir: /
-          dangerous-clean-slate: true
+          dangerous-clean-slate: false
           exclude: |
             projekt/**
             admin/project_auth_data.php

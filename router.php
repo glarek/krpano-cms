@@ -101,7 +101,7 @@ if (strpos($path, '/projekt/') === 0) {
             text-transform: uppercase;
             letter-spacing: 1px;
         ">
-            GRIT Projects
+            <img src="/img/GRIT_LOGO.svg" alt="GRIT Projects" style="height: 20px; filter: brightness(0) invert(1);">
         </div>
         ';
         
