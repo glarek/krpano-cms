@@ -1,0 +1,53 @@
+name: Deploy to FTP
+on: push
+
+jobs:
+  deploy-to-dev:
+    if: github.ref == 'refs/heads/develop'
+    name: Deploy develop branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to FTP (Dev)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME_DEV }}
+          password: ${{ secrets.FTP_PASSWORD_DEV }}
+          local-dir: ./
+          server-dir: /
+          dangerous-clean-slate: true
+          exclude: |
+            projekt/**
+            admin/project_auth_data.php
+            .git*
+            .git*/**
+            **/*.bat
+            .vscode/**
+
+  deploy-to-prod:
+    if: github.ref == 'refs/heads/main'
+    name: Deploy production branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to FTP (Prod)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME_PROD }}
+          password: ${{ secrets.FTP_PASSWORD_PROD }}
+          local-dir: ./
+          server-dir: /
+          dangerous-clean-slate: true
+          exclude: |
+            projekt/**
+            admin/project_auth_data.php
+            .git*
+            .git*/**
+            **/*.bat
+            .vscode/**
