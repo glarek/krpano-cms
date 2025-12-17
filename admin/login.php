@@ -90,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
         <button type="submit">Log In</button>
     </form>
-    <p style="text-align:center; font-size:0.8rem; color:#888; margin-top:1rem;">Default: admin / password</p>
+    <p style="text-align:center; font-size:0.8rem; color:#888; margin-top:1rem;">Kontakta Adrian</p>
 </div>
 
 </body>

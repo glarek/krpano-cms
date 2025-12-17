@@ -8,8 +8,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // Admin credentials
-define('ADMIN_USER', 'admin');
+define('ADMIN_USER', 'adrian.larek@gritprojects.se');
 
-// Hash for password 'password' (using BCRYPT)
-// Generated using `password_hash('password', PASSWORD_BCRYPT)`
-define('ADMIN_HASH', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi'); 
+// Hash for password
+define('ADMIN_HASH', '$2y$12$tQkB43lEiNrDg5a8cjH9s.gQ8OJLbxygNNLDgedpajk2vz3bDWy/.'); 
