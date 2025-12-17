@@ -7,7 +7,7 @@ return array (
   ),
   'hasselbacken245' => 
   array (
-    'user' => 'zebra',
-    'pass' => '$2y$12$RD7QL2Z8B.TEfnXt5lXuhudJy8yYdZz6gRXG6Ue0b1yO0p6BjIVku',
+    'token' => '05b9d30a7a9bb67d7e54c8b8161d7207',
+    'created' => '2025-12-17 20:16',
   ),
 );

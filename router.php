@@ -6,8 +6,22 @@ $path = parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH);
 $ext = pathinfo($path, PATHINFO_EXTENSION);
 
 // Protect /projekt/ directory
-if (strpos($path, '/projekt/') === 0) {
+$requestUri = $_SERVER["REQUEST_URI"];
+$pos = strpos($requestUri, '/projekt/');
+
+if ($pos !== false) {
     session_start();
+    
+    // Normalize path to start with /projekt/
+    $fullPath = substr($requestUri, $pos);
+    // Remove query string if present
+    $path = parse_url($fullPath, PHP_URL_PATH);
+    
+    // Security: Prevent Directory Traversal
+    if (strpos($path, '..') !== false) {
+        http_response_code(403);
+        exit('Access Denied');
+    }
     
     // Extract project folder name
     // path structure: /projekt/PROJECT_NAME/file.ext
@@ -101,7 +115,7 @@ if (strpos($path, '/projekt/') === 0) {
             text-transform: uppercase;
             letter-spacing: 1px;
         ">
-            <img src="/img/GRIT_LOGO.svg" alt="GRIT Projects" style="height: 20px; filter: brightness(0) invert(1);">
+            <img src="../../img/GRIT_LOGO.svg" alt="GRIT Projects" style="height: 20px; filter: brightness(0) invert(1);">
         </div>
         ';
         
@@ -114,6 +128,39 @@ if (strpos($path, '/projekt/') === 0) {
     }
 
     // Serve other files normally
+    if (file_exists(__DIR__ . $path)) {
+        // Basic MIME type map to ensure correct serving without relying solely on server config
+        $mimeTypes = [
+            'css' => 'text/css',
+            'js'  => 'application/javascript',
+            'xml' => 'application/xml',
+            'svg' => 'image/svg+xml',
+            'jpg' => 'image/jpeg',
+            'jpeg'=> 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp'=> 'image/webp',
+            'json'=> 'application/json',
+            'html'=> 'text/html',
+            'htm' => 'text/html',
+        ];
+
+        // extensions are case-insensitive
+        $extLower = strtolower($ext);
+        
+        if (isset($mimeTypes[$extLower])) {
+            $mime = $mimeTypes[$extLower];
+        } elseif (function_exists('mime_content_type')) {
+            $mime = mime_content_type(__DIR__ . $path);
+        } else {
+            $mime = 'application/octet-stream';
+        }
+        
+        header('Content-Type: ' . $mime);
+        readfile(__DIR__ . $path);
+        exit;
+    }
+
     return false;
 }
 
