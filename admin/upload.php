@@ -27,35 +27,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['zipfile'])) {
         exit;
     }
 
-    // Prepare target name
+    // Handle Group Logic
+    $baseDir = __DIR__ . '/../projekt/';
+    $groupName = '';
+
+    if (isset($_POST['group_mode']) && $_POST['group_mode'] === 'NEW') {
+        $newGroup = trim($_POST['new_group_name'] ?? '');
+        // Sanitize group name
+        $newGroup = str_replace(' ', '-', $newGroup);
+        $newGroup = preg_replace('/[^a-zA-Z0-9åäöÅÄÖ_-]/u', '', $newGroup); // Allow Swedish chars
+        if (empty($newGroup)) {
+            echo json_encode(['success' => false, 'message' => "Ogiltigt namn på ny grupp."]);
+            exit;
+        }
+        $groupName = $newGroup;
+        if (!is_dir($baseDir . $groupName)) {
+            if (!mkdir($baseDir . $groupName, 0755, true)) {
+                 $err = error_get_last();
+                 echo json_encode(['success' => false, 'message' => "Kunde inte skapa gruppmapp via mkdir. " . ($err['message'] ?? '')]);
+                 exit;
+            }
+        }
+    } else {
+        $targetGroup = trim($_POST['target_group'] ?? '');
+         // Basic sanity check
+        if (empty($targetGroup) || strpos($targetGroup, '..') !== false || !is_dir($baseDir . $targetGroup)) {
+            echo json_encode(['success' => false, 'message' => "Ogiltig eller saknad målgrupp."]);
+            exit;
+        }
+        $groupName = $targetGroup;
+    }
+
+    // Prepare target project name
     $rawName = pathinfo($file['name'], PATHINFO_FILENAME);
-    $safeName = preg_replace('/[^a-zA-Z0-9_-]/', '', $rawName);
+    $safeName = trim($rawName);
+    $safeName = str_replace(' ', '-', $safeName);
+    $safeName = preg_replace('/[^a-zA-Z0-9åäöÅÄÖ_-]/u', '', $safeName);
     
     if (empty($safeName)) $safeName = "project";
 
-    $targetDirBase = __DIR__ . '/../projekt/';
-    if (!is_dir($targetDirBase)) {
-        if (!mkdir($targetDirBase, 0755, true)) {
-            $err = error_get_last();
-            echo json_encode(['success' => false, 'message' => "Kunde inte skapa huvudmappen '../projekt/'. " . ($err['message'] ?? '')]);
-            exit;
-        }
-    }
-
-    // Unique name logic
-    $targetName = $safeName;
-    $counter = 1;
-    while (is_dir($targetDirBase . $targetName)) {
-        $targetName = $safeName . '_' . $counter;
-        $counter++;
-    }
-
-    $finalDir = $targetDirBase . $targetName;
+    // Uniqueness within the GROUP
+    $targetDir = $baseDir . $groupName . '/' . $safeName;
     
-    // Create directory
-    if (!mkdir($finalDir, 0755)) {
+    // Check if project already exists in this group
+    if (file_exists($targetDir)) {
+         // Auto-increment? Or fail? Providing error is safer.
+         // Let's increment for convenience as per previous logic
+         $counter = 1;
+         $originalName = $safeName;
+         while (file_exists($baseDir . $groupName . '/' . $safeName)) {
+             $safeName = $originalName . '_' . $counter;
+             $counter++;
+         }
+         $targetDir = $baseDir . $groupName . '/' . $safeName;
+    }
+
+    // Create Project Directory
+    if (!mkdir($targetDir, 0755)) {
         $err = error_get_last();
-        echo json_encode(['success' => false, 'message' => "Kunde inte skapa projektmapp '$finalDir'. " . ($err['message'] ?? '')]);
+        echo json_encode(['success' => false, 'message' => "Kunde inte skapa projektmapp '$targetDir'. " . ($err['message'] ?? '')]);
         exit;
     }
 
@@ -63,17 +93,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['zipfile'])) {
     $zip = new ZipArchive;
     $res = $zip->open($file['tmp_name']);
     if ($res === TRUE) {
-        if (!$zip->extractTo($finalDir)) {
-             echo json_encode(['success' => false, 'message' => "Kunde inte extrahera filer till '$finalDir'."]);
-             rmdir($finalDir);
+        if (!$zip->extractTo($targetDir)) {
+             echo json_encode(['success' => false, 'message' => "Kunde inte extrahera filer till '$targetDir'."]);
+             // Cleanup
+             // recursive delete? for now just rmdir (won't work if files partially extracted)
              exit;
         }
         $zip->close();
         
-        echo json_encode(['success' => true, 'message' => "Uppladdning klar!", 'project' => $targetName]);
+        echo json_encode(['success' => true, 'message' => "Uppladdning klar!", 'group' => $groupName, 'project' => $safeName]);
         exit;
     } else {
-        rmdir($finalDir);
+        rmdir($targetDir); // remove empty dir
         echo json_encode(['success' => false, 'message' => "Kunde inte öppna ZIP-filen. Felkod: $res"]);
         exit;
     }

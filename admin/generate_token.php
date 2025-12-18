@@ -61,7 +61,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $export = var_export($currentData, true);
     $content = "<?php\nreturn " . $export . ";\n";
     
-    if (file_put_contents($dataFile, $content)) {
+    if (file_put_contents($dataFile, $content, LOCK_EX)) {
+        // Try to clear OPcache immediately
+        if (function_exists('opcache_invalidate')) {
+            opcache_invalidate($dataFile, true);
+        }
+
         echo json_encode([
             'success' => true, 
             'message' => $msg,

@@ -2,18 +2,43 @@
 require_once 'auth_check.php';
 
 $projectDir = __DIR__ . '/../projekt/';
-$projects = [];
+$groups = [];
+$rootProjects = [];
 
-if (is_dir($projectDir)) {
-    $scanned = scandir($projectDir);
-    foreach ($scanned as $item) {
-        if ($item === '.' || $item === '..') continue;
-        if (is_dir($projectDir . $item)) {
-            $projects[] = $item;
+if (!is_dir($projectDir)) {
+    mkdir($projectDir, 0755, true);
+}
+
+$items = scandir($projectDir);
+foreach ($items as $item) {
+    if ($item === '.' || $item === '..') continue;
+    $path = $projectDir . $item;
+    
+    if (is_dir($path)) {
+        // Check if this is a "Root Project" (Legacy) - contains tour.html directly
+        // Or if it is a "Group" - contains sub-folders
+        
+        $isProject = false;
+        if (file_exists($path . '/tour.html') || file_exists($path . '/tour.xml')) {
+            $isProject = true;
+        }
+
+        if ($isProject) {
+            $rootProjects[] = $item;
+        } else {
+            // Treat as Group, scan for sub-projects
+            $subItems = scandir($path);
+            $groupProjects = [];
+            foreach ($subItems as $sub) {
+                if ($sub === '.' || $sub === '..') continue;
+                if (is_dir($path . '/' . $sub)) {
+                    $groupProjects[] = $sub;
+                }
+            }
+            // Even empty folders are groups
+            $groups[$item] = $groupProjects;
         }
     }
-} else {
-    mkdir($projectDir, 0755, true);
 }
 
 // Helper to parse PHP size shorthand (e.g., '10M')
@@ -35,6 +60,13 @@ $maxMb = floor($maxBytes / 1024 / 1024);
 $memoryLimit = ini_get('memory_limit');
 $maxExecutionTime = ini_get('max_execution_time');
 $maxInputTime = ini_get('max_input_time');
+
+// Load Auth Data for Tokens in Links
+$authFile = __DIR__ . '/project_auth_data.php';
+$authData = [];
+if (file_exists($authFile)) {
+    $authData = require $authFile;
+}
 ?>
 <!DOCTYPE html>
 <html lang="sv">
@@ -50,9 +82,11 @@ $maxInputTime = ini_get('max_input_time');
 
     <style>
         :root {
+            color-scheme: dark; 
             --primary: oklch(0.6 0.2 255.45);
             --primary-hover: oklch(0.55 0.2 255.45);
             --bg-color: #0B0F19;
+
             --card-bg: rgba(255, 255, 255, 0.03);
             --text-color: #ffffff;
             --text-muted: rgba(255, 255, 255, 0.5);
@@ -334,6 +368,60 @@ $maxInputTime = ini_get('max_input_time');
             box-sizing: border-box;
         }
         .modal input[type="text"]:focus { outline: none; border-color: var(--primary); }
+        
+        /* Select Dropdown Styling */
+        select option {
+            background-color: #0B0F19; /* Hardcoded dark hex for safety */
+            color: white;
+        }
+        
+        .custom-select {
+            width: 100%;
+            padding: 0.5rem;
+            border-radius: 8px;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: white;
+            color-scheme: dark; /* CRITICAL: Forces the dropdown menu to be dark */
+        }
+        .custom-select:focus { outline: none; border-color: var(--primary); }
+
+        /* Group Styling */
+        .group-section { margin-bottom: 1.5rem; }
+
+        .group-header {
+            background: rgba(255,255,255,0.05);
+            padding: 1rem;
+            border-radius: 8px; /* Simple radius, simpler is cleaner */
+            /* margin-bottom removed to connect with content */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .group-header:hover { background: rgba(255,255,255,0.08); }
+        .group-title { font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+        .group-content { 
+            margin-left: 1.5rem; 
+            border-left: 2px solid var(--border-color); 
+            padding-left: 1rem;
+            padding-top: 0.5rem; 
+            /* margin-bottom handled by group-section */
+            display: none; 
+        }
+        .group-content.open { display: block; }
+        .project-row {
+            background: var(--card-bg);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border-color);
+        }
     </style>
 </head>
 <body>
@@ -373,12 +461,31 @@ $maxInputTime = ini_get('max_input_time');
         </div>
         
         <div class="info-box">
-             ZIP-filen ska innehålla <code>tour.html</code> m.fl. <strong>direkt</strong> i roten. Mappen på servern får ZIP-filens namn.
+             ZIP-filen ska innehålla <code>tour.html</code>. Mappen får ZIP-filens namn.
         </div>
 
-        <form id="uploadForm" enctype="multipart/form-data">
-            <input type="file" name="zipfile" id="zipfile" required accept=".zip">
-            <button type="submit" class="btn btn-primary" id="uploadBtn" style="padding: 0.5rem 1.5rem;">Ladda upp</button>
+        <form id="uploadForm" enctype="multipart/form-data" style="flex-direction:column; align-items:stretch;">
+            
+            <div style="display:flex; gap:1rem; margin-bottom:1rem; align-items:flex-end;">
+                <div style="flex:1;" id="group_select_container">
+                    <label style="display:block; font-size:0.8rem; margin-bottom:0.3rem; color:var(--text-muted);">Välj Projektgrupp</label>
+                    <select name="group_select" id="group_select" class="custom-select">
+                        <option value="" disabled selected>-- Välj Grupp --</option>
+                        <?php foreach ($groups as $gName => $gProjects): ?>
+                            <option value="<?= htmlspecialchars($gName) ?>"><?= htmlspecialchars($gName) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div>
+                    <button type="button" class="btn btn-outline" style="padding: 0.5rem 1rem;" onclick="openCreateGroupModal()">+ Ny Grupp</button>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:1rem;">
+                <input type="file" name="zipfile" id="zipfile" required accept=".zip">
+                <button type="submit" class="btn btn-primary" id="uploadBtn" style="padding: 0.5rem 1.5rem;">Ladda upp</button>
+            </div>
         </form>
         
         <div class="progress-wrapper" id="progressWrapper">
@@ -395,46 +502,84 @@ $maxInputTime = ini_get('max_input_time');
         </div>
     </div>
 
-    <table>
-        <thead>
-            <tr>
-                <th>Projekt</th>
-                <th style="width: 300px;">Åtgärder</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if (empty($projects)): ?>
-                <tr>
-                    <td colspan="2" class="empty-state">Inga projekt uppladdade än.</td>
-                </tr>
-            <?php else: ?>
-                <?php foreach ($projects as $proj): ?>
-                <tr>
-                    <td><?= htmlspecialchars($proj) ?></td>
-                    <td>
-                        <div class="actions">
-                            <a href="../projekt/<?= urlencode($proj) ?>/tour.html" target="_blank" class="btn btn-primary">Öppna</a>
-                            <button data-project="<?= htmlspecialchars($proj) ?>" onclick="openShareModal(this.dataset.project)" class="btn btn-outline" style="min-width: 80px;">Dela</button>
-                            <button data-project="<?= htmlspecialchars($proj) ?>" onclick="openRenameModal(this.dataset.project)" class="btn btn-outline">Byt namn</button>
-                            <a href="delete.php?project=<?= urlencode($proj) ?>" onclick="return confirm('Är du säker på att du vill radera <?= htmlspecialchars($proj) ?>?')" class="btn btn-danger">Radera</a>
+    <!-- Groups List -->
+    <div id="project-list">
+        <?php if (empty($groups) && empty($rootProjects)): ?>
+            <div class="empty-state">Inga projekt eller grupper uppladdade än.</div>
+        <?php else: ?>
+            
+            <!-- Groups -->
+            <?php foreach ($groups as $groupName => $projects): ?>
+            <div class="group-section">
+                <!-- Group Header -->
+                <?php 
+                    // Check token availability
+                    $token = isset($authData[$groupName]['token']) ? $authData[$groupName]['token'] : null;
+                    
+                    // Prepare Group Open Link
+                    $groupOpenLink = "../projekt/" . htmlspecialchars($groupName) . "/";
+                    if ($token) {
+                        $groupOpenLink .= "?token=" . $token;
+                    }
+                ?>
+                <div class="group-header" onclick="toggleGroup('<?= htmlspecialchars($groupName) ?>')">
+                    <div class="group-title">
+                        <span style="font-size:1.2rem;">📁</span> 
+                        <?= htmlspecialchars($groupName) ?> 
+                        <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal; margin-left:0.5rem; background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:12px;"><?= count($projects) ?> projekt</span>
+                    </div>
+                    <div class="actions" onclick="event.stopPropagation()" style="display:flex; align-items:center;">
+                        <a href="<?= $groupOpenLink ?>" target="_blank" class="btn btn-outline" style="font-size:0.8rem; padding: 0.3rem 0.8rem; margin-right:5px; text-decoration:none;">Öppna</a>
+                        <button onclick="openShareModal('<?= htmlspecialchars($groupName) ?>')" class="btn btn-outline" style="font-size:0.8rem; padding: 0.3rem 1rem; margin-right:5px;">🔒 Hantera Åtkomst</button>
+                        <a href="delete.php?group=<?= urlencode($groupName) ?>" onclick="return confirm('VARNING: Detta raderar HELA gruppen och ALLA dess projekt.\n\nÄr du helt säker?')" class="btn btn-danger" style="font-size:0.8rem; padding: 0.3rem 0.8rem; text-decoration:none;">Radera</a>
+                    </div>
+                </div>
+
+                        <!-- Projects in Group -->
+                        <div class="group-content" id="group-<?= htmlspecialchars($groupName) ?>">
+                            <?php if (empty($projects)): ?>
+                                <div style="padding:1rem; color:var(--text-muted); font-style:italic;">Inga projekt i denna grupp än.</div>
+                            <?php else: ?>
+                                <?php foreach ($projects as $proj): ?>
+                                <?php 
+                                    $openLink = "../projekt/" . htmlspecialchars($groupName) . "/" . htmlspecialchars($proj) . "/tour.html";
+                                    if ($token) {
+                                        $openLink .= "?token=" . $token;
+                                    }
+                                ?>
+                                <div class="project-row">
+                                    <div style="font-weight:500;">
+                                        📄 <?= htmlspecialchars($proj) ?>
+                                    </div>
+                                    <div class="actions">
+                                        <a href="<?= $openLink ?>" target="_blank" class="btn btn-primary" style="font-size:0.8rem;">Öppna</a>
+                                        
+                                        <button onclick="openMoveModal('<?= htmlspecialchars($groupName) ?>', '<?= htmlspecialchars($proj) ?>')" class="btn btn-outline" style="font-size:0.8rem;">Flytta</button>
+                                        <button onclick="openRenameModal('<?= htmlspecialchars($groupName) ?>', '<?= htmlspecialchars($proj) ?>')" class="btn btn-outline" style="font-size:0.8rem;">Byt namn</button>
+                                        
+                                        <a href="delete.php?group=<?= urlencode($groupName) ?>&project=<?= urlencode($proj) ?>" onclick="return confirm('Är du säker på att du vill radera <?= htmlspecialchars($proj) ?>?')" class="btn btn-danger" style="font-size:0.8rem;">Radera</a>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </div>
-                    </td>
-                </tr>
+                    </div>
                 <?php endforeach; ?>
             <?php endif; ?>
-        </tbody>
-    </table>
+    </div>
 </div>
 
     <!-- Rename Modal -->
     <div id="renameModal" class="modal">
         <div class="modal-content">
-            <h3 class="modal-title">Byt namn på projekt</h3>
+            <h3 class="modal-title">Byt namn</h3>
             <form action="rename.php" method="POST">
-                <input type="hidden" name="old_name" id="old_name_input">
+                <input type="hidden" name="group" id="rename_group_input">
+                <input type="hidden" name="old_name" id="rename_old_name_input">
+                
                 <div style="margin-bottom:1rem;">
                     <label style="display:block; margin-bottom:0.5rem;">Nytt namn:</label>
-                    <input type="text" name="new_name" id="new_name_input" style="width:100%; padding:0.5rem;" required>
+                    <input type="text" name="new_name" id="rename_new_name_input" style="width:100%; padding:0.5rem;" required>
                 </div>
                 <div style="text-align:right; gap:0.5rem; display:flex; justify-content:flex-end;">
                     <button type="button" onclick="closeRenameModal()" class="btn btn-outline">Avbryt</button>
@@ -444,35 +589,81 @@ $maxInputTime = ini_get('max_input_time');
         </div>
     </div>
 
+    <!-- Move Modal -->
+    <div id="moveModal" class="modal">
+        <div class="modal-content">
+            <h3 class="modal-title">Flytta Projekt</h3>
+            <form action="move.php" method="POST">
+                <input type="hidden" name="project" id="move_project_input">
+                <input type="hidden" name="current_group" id="move_current_group_input">
+                
+                <p id="move-project-display" style="color:var(--text-muted); margin-bottom:1rem;"></p>
+
+                <div style="margin-bottom:1rem;">
+                    <label style="display:block; margin-bottom:0.5rem;">Välj Ny Grupp:</label>
+                    <select name="target_group" style="width:100%; padding:0.75rem; border-radius:8px; background:var(--input-bg); border:1px solid var(--border-color); color:white;">
+                        <?php foreach ($groups as $gName => $p): ?>
+                            <option value="<?= htmlspecialchars($gName) ?>"><?= htmlspecialchars($gName) ?></option>
+                        <?php endforeach; ?>
+                        <option value="NEW">+ Skapa Ny Grupp</option>
+                    </select>
+                </div>
+
+                 <div style="margin-bottom:1rem;">
+                    <label style="display:block; margin-bottom:0.5rem; color:var(--text-muted); font-size:0.85rem;">Eller skriv namn för ny grupp:</label>
+                    <input type="text" name="new_group_name" placeholder="T.ex. Arkiv" style="width:100%;">
+                </div>
+
+                <div style="text-align:right; gap:0.5rem; display:flex; justify-content:flex-end;">
+                    <button type="button" onclick="closeMoveModal()" class="btn btn-outline">Avbryt</button>
+                    <button type="submit" class="btn btn-primary">Flytta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create Group Modal -->
+    <div id="createGroupModal" class="modal">
+        <div class="modal-content">
+            <h3 class="modal-title">Skapa Ny Projektgrupp</h3>
+            <div>
+                <label style="display:block; margin-bottom:0.5rem;">Gruppnamn:</label>
+                <input type="text" id="create_group_name_input" placeholder="T.ex. Fastigheter 2024" style="width:100%; padding:0.5rem; margin-bottom:1rem;">
+                <div id="create-group-msg" style="margin-bottom:1rem;"></div>
+            </div>
+            <div style="text-align:right; gap:0.5rem; display:flex; justify-content:flex-end;">
+                <button onclick="closeCreateGroupModal()" class="btn btn-outline">Avbryt</button>
+                <button onclick="createGroup()" class="btn btn-primary">Spara</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Share/Security Modal -->
     <div id="shareModal" class="modal">
         <div class="modal-content" style="width: 500px;">
-            <h3 class="modal-title">Dela Projekt</h3>
-            <p id="share-project-name" style="color:#666; margin-bottom:1.5rem;"></p>
+            <h3 class="modal-title">Dela Projektgrupp</h3>
+            <p id="share-project-name" style="color:#666; margin-bottom:1.5rem; font-weight:bold;"></p>
+            <p style="font-size:0.85rem; color: #888; margin-bottom:1rem;">Obs: Detta skyddar <strong>hela gruppen</strong>. Alla projekt i denna mapp kommer kräva samma länk.</p>
             
             <div id="share-loading" style="text-align:center; padding:1rem;">Laddar...</div>
             
             <!-- State: Not Protected -->
             <div id="share-unprotected" style="display:none; text-align:center; padding:1rem 0;">
-                <p>Detta projekt är öppet för alla.</p>
+                <p>Denna grupp är öppen för alla.</p>
                 <button onclick="generateToken()" class="btn btn-success" style="padding: 10px 20px;">Generera säker länk</button>
-                <p style="font-size:0.8rem; color:#999; margin-top:10px;">Detta gör att projektet endast kan ses via den nya länken.</p>
             </div>
 
             <!-- State: Protected -->
             <div id="share-protected" style="display:none;">
-                <div style="background:#f1f9ff; padding:1rem; border-radius:4px; margin-bottom:1.5rem;">
-                    <label style="display:block; font-size:0.8rem; color:#007bff; font-weight:600; margin-bottom:0.5rem;">UNIK LÄNK (Använd denna för att dela)</label>
+                <div style="background:rgba(255,255,255,0.05); padding:1rem; border-radius:4px; margin-bottom:1.5rem; border:1px solid var(--border-color);">
+                    <label style="display:block; font-size:0.8rem; color:var(--primary); font-weight:600; margin-bottom:0.5rem;">UNIK LÄNK TILL GRUPPEN</label>
                     <div style="display:flex; gap:0.5rem;">
-                        <input type="text" id="share-link-input" readonly style="width:100%; padding:0.5rem; background:white; border:1px solid #ccc; font-family:monospace;">
+                        <input type="text" id="share-link-input" readonly style="width:100%; padding:0.5rem; background:rgba(0,0,0,0.3); border:1px solid var(--border-color); font-family:monospace; color:var(--success-color);">
                         <button onclick="copyLink()" class="btn btn-primary">Kopiera</button>
-                    </div>
-                    <div style="font-size:0.8rem; color:#666; margin-top:0.5rem;">
-                        Skapad: <span id="share-created-at"></span>
                     </div>
                 </div>
 
-                <div style="display:flex; justify-content:space-between; border-top:1px solid #eee; padding-top:1rem;">
+                <div style="display:flex; justify-content:space-between; border-top:1px solid var(--border-color); padding-top:1rem;">
                     <button onclick="generateToken()" class="btn btn-outline" style="font-size:0.8rem;">Generera ny länk (Ogiltigförklara gammal)</button>
                     <button onclick="deleteToken()" class="btn btn-danger" style="font-size:0.8rem;">Ta bort skydd</button>
                 </div>
@@ -485,24 +676,98 @@ $maxInputTime = ini_get('max_input_time');
     </div>
 
     <script>
+        // Group Logic
+        function toggleGroup(groupName) {
+            const content = document.getElementById('group-' + groupName);
+            content.classList.toggle('open');
+        }
+
+        // Create Group Modal Logic
+        const createGroupModal = document.getElementById('createGroupModal');
+        
+        function openCreateGroupModal() {
+            document.getElementById('create_group_name_input').value = '';
+            document.getElementById('create-group-msg').innerText = '';
+            createGroupModal.classList.add('active');
+            setTimeout(() => document.getElementById('create_group_name_input').focus(), 100);
+        }
+
+        function closeCreateGroupModal() {
+            createGroupModal.classList.remove('active');
+        }
+
+        function createGroup() {
+            const nameInput = document.getElementById('create_group_name_input');
+            const msgDiv = document.getElementById('create-group-msg');
+            const groupName = nameInput.value;
+
+            if(!groupName.trim()) {
+                msgDiv.innerText = "Ange ett namn.";
+                msgDiv.style.color = "var(--danger-color)";
+                return;
+            }
+
+            msgDiv.innerText = "Skapar...";
+            msgDiv.style.color = "var(--text-muted)";
+
+            const formData = new FormData();
+            formData.append('group_name', groupName);
+
+            fetch('create_group.php', { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        msgDiv.innerText = "Klart! Laddar om...";
+                        msgDiv.style.color = "var(--success-color)";
+                        setTimeout(() => window.location.reload(), 500);
+                    } else {
+                        msgDiv.innerText = "Fel: " + data.message;
+                        msgDiv.style.color = "var(--danger-color)";
+                    }
+                })
+                .catch(err => {
+                    msgDiv.innerText = "Nätverksfel.";
+                    msgDiv.style.color = "var(--danger-color)";
+                });
+        }
+        
+        window.onclick = function(event) {
+            if (event.target == renameModal) closeRenameModal();
+            if (event.target == shareModal) closeShareModal();
+            if (event.target == moveModal) closeMoveModal();
+            if (event.target == createGroupModal) closeCreateGroupModal();
+        }
+
         // Modal Logic
         const renameModal = document.getElementById('renameModal');
         const shareModal = document.getElementById('shareModal');
-        let currentProject = '';
+        const moveModal = document.getElementById('moveModal');
+        let currentProject = ''; // Effectively "Current Group" for Auth
 
-        function openRenameModal(name) {
-            document.getElementById('old_name_input').value = name;
-            document.getElementById('new_name_input').value = name;
+        function openRenameModal(group, name) {
+            document.getElementById('rename_group_input').value = group;
+            document.getElementById('rename_old_name_input').value = name;
+            document.getElementById('rename_new_name_input').value = name;
             renameModal.classList.add('active');
         }
         function closeRenameModal() {
             renameModal.classList.remove('active');
         }
+
+        function openMoveModal(group, project) {
+            document.getElementById('move_project_input').value = project;
+            document.getElementById('move_current_group_input').value = group;
+            document.getElementById('move-project-display').innerText = `Flytta "${project}" från "${group}" till...`;
+            moveModal.classList.add('active');
+        }
+        function closeMoveModal() {
+            moveModal.classList.remove('active');
+        }
         
-        // Share Modal Functions
-        function openShareModal(projectName) {
-            currentProject = projectName;
-            document.getElementById('share-project-name').innerText = projectName;
+        // Share Modal Functions (Now for Groups)
+        function openShareModal(groupName) {
+            currentProject = groupName; // We treat Group Name as the "Project" key in auth_data
+            document.getElementById('share-project-name').innerText = groupName;
             shareModal.classList.add('active');
             fetchTokenStatus();
         }
@@ -533,32 +798,26 @@ $maxInputTime = ini_get('max_input_time');
                 .catch(err => {
                     document.getElementById('share-loading').style.display = 'none';
                     console.error("Fetch Error:", err);
-                    alert("Ett fel uppstod vid hämtning av status. Kontrollera konsolen.");
                 });
         }
 
         function showProtected(token, created) {
-            // Robustly find root by splitting at /admin/
+            // Group Link: /projekt/GroupName/
             const baseUrl = window.location.href.split('/admin/')[0] + '/projekt/';
-            // Clean URL construction: Base + ProjectName + /tour.html?token=...
-            // Note: Project name needs encoding in URL
-            const fullLink = baseUrl + encodeURIComponent(currentProject) + '/tour.html?token=' + token;
+            const fullLink = baseUrl + encodeURIComponent(currentProject) + '/?token=' + token;
             
             document.getElementById('share-link-input').value = fullLink;
-            document.getElementById('share-created-at').innerText = created;
+            // document.getElementById('share-created-at').innerText = created;
             document.getElementById('share-protected').style.display = 'block';
             document.getElementById('share-unprotected').style.display = 'none';
         }
 
         function generateToken() {
-            if(!confirm("Vill du generera en ny länk? Om du gör detta kommer den gamla länken att sluta fungera.")) return;
-            
+            if(!confirm("Vill du generera en ny länk för hela gruppen?")) return;
             performTokenAction('generate');
         }
-
         function deleteToken() {
-            if(!confirm("Är du säker på att du vill ta bort skyddet? Projektet blir då öppet för alla.")) return;
-            
+            if(!confirm("Vill du ta bort skyddet för hela gruppen?")) return;
             performTokenAction('delete');
         }
 
@@ -567,20 +826,72 @@ $maxInputTime = ini_get('max_input_time');
             formData.append('project_name', currentProject);
             formData.append('action', action);
 
+            // Debug feedback
+            const btn = document.activeElement;
+            if(btn) {
+                btn.disabled = true;
+                btn.innerText = "Bearbetar...";
+            }
+
             fetch('generate_token.php', { method: 'POST', body: formData })
-                .then(r => r.json())
+                .then(response => response.text()) // Get text first to debug JSON errors
+                .then(text => {
+                    console.log("Server Response:", text);
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        throw new Error("Ogiltigt serversvar: " + text.substring(0, 100));
+                    }
+                })
                 .then(data => {
                     if (data.success) {
-                        if (action === 'delete') {
-                            document.getElementById('share-protected').style.display = 'none';
-                            document.getElementById('share-unprotected').style.display = 'block';
-                        } else {
-                            showProtected(data.token, data.created);
-                        }
+                        // Success - Reload page to update all "Open" links
+                        // Add delay to ensure filesystem catches up
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 3000);
                     } else {
                         alert("Fel: " + data.message);
+                        if(btn) {
+                            btn.disabled = false;
+                            btn.innerText = "Försök igen";
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("Ett fel inträffade: " + err.message);
+                    if(btn) {
+                        btn.disabled = false;
+                        btn.innerText = "Försök igen";
                     }
                 });
+        }
+
+        function copyGroupLink(groupName, token) {
+            const baseUrl = window.location.href.split('/admin/')[0] + '/projekt/';
+            let fullLink = baseUrl + encodeURIComponent(groupName) + '/';
+            
+            if (token && token.length > 0) {
+                fullLink += '?token=' + token;
+            }
+
+            navigator.clipboard.writeText(fullLink).then(() => {
+                const btn = event.target.closest('button'); 
+                const originalText = btn.innerText;
+                
+                btn.innerText = '✅';
+                btn.classList.add('btn-success');
+                btn.classList.remove('btn-outline');
+                
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-outline');
+                }, 2000);
+            }).catch(err => {
+                alert("Kunde inte kopiera länk automatically. \n" + fullLink);
+            });
         }
 
         function copyLink() {
@@ -595,116 +906,118 @@ $maxInputTime = ini_get('max_input_time');
         window.onclick = function(event) {
             if (event.target == renameModal) closeRenameModal();
             if (event.target == shareModal) closeShareModal();
+            if (event.target == moveModal) closeMoveModal();
         }
 
-        // Removed Old Settings Save Listener setup safely by replacement
+        // Upload Logic
+        const form = document.getElementById('uploadForm');
+        const fileInput = document.getElementById('zipfile');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const progressWrapper = document.getElementById('progressWrapper');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const statusMessage = document.getElementById('status-message');
+        const loadingSpinner = document.getElementById('loadingSpinner');
 
+        // Server limits from PHP
+        const MAX_BYTES = <?= $maxBytes ?>;
+        const MAX_MB = <?= $maxMb ?>;
 
-    // Upload Logic
-    const form = document.getElementById('uploadForm');
-    const fileInput = document.getElementById('zipfile');
-    const uploadBtn = document.getElementById('uploadBtn');
-    const progressWrapper = document.getElementById('progressWrapper');
-    const progressFill = document.getElementById('progressFill');
-    const progressText = document.getElementById('progressText');
-    const statusMessage = document.getElementById('status-message');
-    const loadingSpinner = document.getElementById('loadingSpinner');
-
-    // Server limits from PHP
-    const MAX_BYTES = <?= $maxBytes ?>;
-    const MAX_MB = <?= $maxMb ?>;
-
-    fileInput.addEventListener('change', function() {
-        const file = this.files[0];
-        if (file) {
-            if (file.size > MAX_BYTES) {
-                alert(`Filen är för stor! \nDin fil: ${(file.size / 1024 / 1024).toFixed(2)} MB\nMax tillåtet: ${MAX_MB} MB\n\nKontrollera 'upload_max_filesize' i din serverkonfiguration.`);
-                this.value = ''; // Clear input
-                uploadBtn.disabled = true;
-                statusMessage.innerText = '';
-                return;
-            } else {
-                uploadBtn.disabled = false;
-            }
-        }
-    });
-
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const file = fileInput.files[0];
-        if (!file) return;
-
-        if (file.size > MAX_BYTES) {
-            alert(`Filen är för stor (${(file.size / 1024 / 1024).toFixed(2)} MB). Max är ${MAX_MB} MB.`);
-            return;
-        }
-
-        // Reset UI
-        uploadBtn.disabled = true;
-        progressWrapper.style.display = 'block';
-        loadingSpinner.style.display = 'none';
-        progressFill.style.width = '0%';
-        progressText.innerText = '0%';
-        statusMessage.innerText = 'Laddar upp...';
-        statusMessage.style.color = 'var(--text-muted)';
-
-        const formData = new FormData();
-        formData.append('zipfile', file);
-
-        const xhr = new XMLHttpRequest();
-
-        // Progress event
-        xhr.upload.addEventListener('progress', function(e) {
-            if (e.lengthComputable) {
-                const percent = Math.round((e.loaded / e.total) * 100);
-                progressFill.style.width = percent + '%';
-                progressText.innerText = percent + '%';
-                
-                if (percent === 100) {
-                    statusMessage.innerText = 'Packar upp filer... (Detta kan ta en stund)';
-                    loadingSpinner.style.display = 'block';
-                }
-            }
-        });
-
-        // Load event (complete)
-        xhr.addEventListener('load', function() {
-            uploadBtn.disabled = false;
-            loadingSpinner.style.display = 'none';
-            
-            try {
-                const response = JSON.parse(xhr.responseText);
-                if (response.success) {
-                    statusMessage.innerText = response.message;
-                    statusMessage.style.color = 'var(--success-color)';
-                    setTimeout(() => window.location.reload(), 1500); // Reload after success
+        fileInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                if (file.size > MAX_BYTES) {
+                    alert(`Filen är för stor! \nDin fil: ${(file.size / 1024 / 1024).toFixed(2)} MB\nMax tillåtet: ${MAX_MB} MB\n\nKontrollera 'upload_max_filesize' i din serverkonfiguration.`);
+                    this.value = ''; // Clear input
+                    uploadBtn.disabled = true;
+                    statusMessage.innerText = '';
+                    return;
                 } else {
-                    statusMessage.innerText = 'Fel: ' + response.message;
-                    statusMessage.style.color = 'var(--danger-color)';
+                    uploadBtn.disabled = false;
                 }
-            } catch (e) {
-                console.error("JSON Parse Error:", e);
-                console.log("Raw Response:", xhr.responseText);
-                // Extract a meaningful error if possible, otherwise show raw start
-                let rawSnippet = xhr.responseText.substring(0, 200).replace(/</g, "&lt;");
-                statusMessage.innerHTML = 'Kunde inte läsa svaret från servern. <br>Troligt fel: " ' + rawSnippet + '..."<br>Kontrollera konsolen (F12) för mer info.';
-                statusMessage.style.color = 'var(--danger-color)';
             }
         });
 
-        // Error event
-        xhr.addEventListener('error', function() {
-            uploadBtn.disabled = false;
-            loadingSpinner.style.display = 'none';
-            statusMessage.innerText = 'Ett nätverksfel uppstod (XHR Error).';
-            statusMessage.style.color = 'var(--danger-color)';
-        });
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const file = fileInput.files[0];
+            if (!file) return;
 
-        xhr.open('POST', 'upload.php', true);
-        xhr.send(formData);
-    });
-</script>
+            if (file.size > MAX_BYTES) {
+                alert(`Filen är för stor (${(file.size / 1024 / 1024).toFixed(2)} MB). Max är ${MAX_MB} MB.`);
+                return;
+            }
+
+            // Check group selection
+            const groupSelect = document.getElementById('group_select');
+            const targetGroup = groupSelect.value;
+            
+            if (!targetGroup) {
+                alert("Välj en grupp.");
+                return;
+            }
+
+            // Reset UI
+            uploadBtn.disabled = true;
+            progressWrapper.style.display = 'block';
+            loadingSpinner.style.display = 'none';
+            progressFill.style.width = '0%';
+            progressText.innerText = '0%';
+            statusMessage.innerText = 'Laddar upp...';
+            statusMessage.style.color = 'var(--text-muted)';
+
+            const formData = new FormData();
+            formData.append('zipfile', file);
+            formData.append('group_mode', 'EXISTING');
+            formData.append('target_group', targetGroup);
+
+            const xhr = new XMLHttpRequest();
+
+            xhr.upload.addEventListener('progress', function(e) {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    progressFill.style.width = percent + '%';
+                    progressText.innerText = percent + '%';
+                    
+                    if (percent === 100) {
+                        statusMessage.innerText = 'Packar upp filer... (Detta kan ta en stund)';
+                        loadingSpinner.style.display = 'block';
+                    }
+                }
+            });
+
+            xhr.addEventListener('load', function() {
+                uploadBtn.disabled = false;
+                loadingSpinner.style.display = 'none';
+                
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.success) {
+                        statusMessage.innerText = response.message;
+                        statusMessage.style.color = 'var(--success-color)';
+                        setTimeout(() => window.location.reload(), 1000); 
+                    } else {
+                        statusMessage.innerText = 'Fel: ' + response.message;
+                        statusMessage.style.color = 'var(--danger-color)';
+                    }
+                } catch (e) {
+                   console.error(e);
+                   statusMessage.innerText = 'Serverfel (JSON)';
+                   statusMessage.style.color = 'var(--danger-color)';
+                }
+            });
+
+            xhr.addEventListener('error', function() {
+                uploadBtn.disabled = false;
+                statusMessage.innerText = 'Nätverksfel';
+            });
+
+            xhr.open('POST', 'upload.php', true);
+            xhr.send(formData);
+        });
+    </script>
+
 
 </body>
 </html>
