@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600" rel="stylesheet">
 
     <style>
         :root {
@@ -39,9 +39,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             --primary-hover: oklch(0.55 0.2 255.45);
             --bg-color: #0B0F19;
             --text-color: #FFFFFF;
-            --input-bg: rgba(255, 255, 255, 0.05);
+            --input-bg: #FFFFFF;
             --input-border: rgba(255, 255, 255, 0.1);
-            --input-focus: rgba(255, 255, 255, 0.2);
+            --input-focus: #FFFFFF;
+        }
+
+        * {
+            font-family: 'Outfit', sans-serif;
         }
 
         body {
@@ -55,6 +59,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin: 0;
             overflow: hidden;
             position: relative;
+            opacity: 0; /* FOUC Prevention */
+            transition: opacity 0.3s ease-in-out;
         }
 
         /* Ambient Glow Effect */
@@ -96,7 +102,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         label {
             display: block;
             margin-bottom: 0.5rem;
-            font-weight: 400;
             font-size: 0.9rem;
             opacity: 0.8;
             margin-left: 0.5rem;
@@ -108,12 +113,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background: var(--input-bg);
             border: 1px solid var(--input-border);
             border-radius: 9999px; /* Pill shape inputs */
-            color: white;
-            font-family: inherit;
+            color: #000000;
+            font-family: 'Outfit', sans-serif !important;
             font-size: 1rem;
             transition: all 0.3s ease;
             box-sizing: border-box;
             outline: none;
+        }
+
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 30px white inset !important;
+            -webkit-text-fill-color: black !important;
+            transition: background-color 5000s ease-in-out 0s;
+            font-family: 'Outfit', sans-serif !important;
+        }
+
+        input::placeholder {
+            font-family: 'Outfit', sans-serif !important;
+            opacity: 0.6;
         }
 
         input[type="text"]:focus, input[type="password"]:focus {
@@ -184,7 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <form method="POST">
         <div class="form-group">
             <label for="username">Användarnamn</label>
-            <input type="text" id="username" name="username" required autofocus placeholder="Admin">
+            <input type="text" id="username" name="username" required placeholder="Admin">
         </div>
         <div class="form-group">
             <label for="password">Lösenord</label>
@@ -195,6 +215,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     <a href="../index.php" class="back-link">← Tillbaka till startsidan</a>
 </div>
+
+<script>
+    // FOUC Prevention: Wait for fonts, then reveal
+    document.fonts.ready.then(function() {
+        document.body.style.opacity = 1;
+    });
+
+    // Fallback in case font loading event fails or hangs
+    setTimeout(function() {
+        if (document.body.style.opacity === '0' || document.body.style.opacity === '') {
+            document.body.style.opacity = 1;
+        }
+    }, 500);
+</script>
 
 </body>
 </html>

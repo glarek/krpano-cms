@@ -78,7 +78,7 @@ if (file_exists($authFile)) {
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600" rel="stylesheet">
 
     <style>
         :root {
@@ -96,6 +96,10 @@ if (file_exists($authFile)) {
             --input-bg: rgba(255, 255, 255, 0.05);
             --input-border: rgba(255, 255, 255, 0.1);
             --input-focus: rgba(255, 255, 255, 0.15);
+        }
+
+        * {
+            font-family: 'Outfit', sans-serif;
         }
 
         body {
