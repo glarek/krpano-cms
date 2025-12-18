@@ -15,6 +15,26 @@ if (is_dir($projectDir)) {
 } else {
     mkdir($projectDir, 0755, true);
 }
+
+// Helper to parse PHP size shorthand (e.g., '10M')
+function parse_size($size) {
+    $unit = preg_replace('/[^bkmgtpezy]/i', '', $size);
+    $size = preg_replace('/[^0-9\.]/', '', $size);
+    if ($unit) {
+        return round($size * pow(1024, stripos('bkmgtpezy', $unit[0])));
+    } else {
+        return round($size);
+    }
+}
+
+$maxUpload = parse_size(ini_get('upload_max_filesize'));
+$maxPost = parse_size(ini_get('post_max_size'));
+$maxBytes = min($maxUpload, $maxPost);
+$maxMb = floor($maxBytes / 1024 / 1024);
+
+$memoryLimit = ini_get('memory_limit');
+$maxExecutionTime = ini_get('max_execution_time');
+$maxInputTime = ini_get('max_input_time');
 ?>
 <!DOCTYPE html>
 <html lang="sv">
@@ -22,25 +42,53 @@ if (is_dir($projectDir)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Krpano CMS Dashboard</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+
     <style>
         :root {
-            --bg-color: #f8f9fa;
-            --card-bg: #ffffff;
-            --text-color: #333333;
-            --border-color: #e9ecef;
-            --accent-color: #007bff;
-            --danger-color: #dc3545;
-            --success-color: #28a745;
-            --warning-color: #ffc107;
+            --primary: oklch(0.6 0.2 255.45);
+            --primary-hover: oklch(0.55 0.2 255.45);
+            --bg-color: #0B0F19;
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --text-color: #ffffff;
+            --text-muted: rgba(255, 255, 255, 0.5);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --danger-color: #ef4444;
+            --success-color: #10b981;
+            --input-bg: rgba(255, 255, 255, 0.05);
+            --input-border: rgba(255, 255, 255, 0.1);
+            --input-focus: rgba(255, 255, 255, 0.15);
         }
 
         body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            font-family: 'Outfit', sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
             padding: 2rem;
             line-height: 1.5;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* Ambient Glow */
+        .glow {
+            position: absolute;
+            width: 800px;
+            height: 800px;
+            background: var(--primary);
+            opacity: 0.06;
+            filter: blur(120px);
+            border-radius: 50%;
+            z-index: -1;
+            top: 20%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
         }
 
         header {
@@ -53,118 +101,297 @@ if (is_dir($projectDir)) {
             margin-right: auto;
         }
 
-        h1 { font-weight: 300; margin: 0; }
+        h1 { font-weight: 600; margin: 0; font-size: 1.5rem; letter-spacing: -0.02em; }
         
         .btn {
-            display: inline-block;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1.25rem;
+            border-radius: 9999px;
             text-decoration: none;
             font-size: 0.9rem;
             font-weight: 500;
-            border: none;
+            border: 1px solid transparent;
             cursor: pointer;
-            transition: opacity 0.2s;
+            transition: all 0.2s;
+            font-family: inherit;
         }
-        .btn:hover { opacity: 0.9; }
-        .btn-primary { background-color: var(--accent-color); color: white; }
-        .btn-danger { background-color: var(--danger-color); color: white; }
+        .btn:hover { transform: translateY(-1px); }
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        
+        .btn-danger { background-color: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .btn-danger:hover { background-color: rgba(239, 68, 68, 0.3); color: white; }
+        
         .btn-success { background-color: var(--success-color); color: white; }
-        .btn-outline { border: 1px solid #ccc; color: #555; background: transparent; }
-        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
+        
+        .btn-outline { border: 1px solid var(--border-color); color: var(--text-color); background: transparent; }
+        .btn-outline:hover { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.3); }
+        
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            background: var(--card-bg);
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            padding: 2rem;
         }
 
-        .upload-section {
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 2rem;
+        /* Stats Grid - Concentrated */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
             margin-bottom: 2rem;
         }
 
+        .stat-card {
+            background: var(--card-bg);
+            padding: 1rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Upload Section - Concentrated & Clean */
+        .upload-section {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            backdrop-filter: blur(5px);
+        }
+        
+        .upload-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .upload-header h3 { margin: 0; font-size: 1.1rem; font-weight: 500; }
+
+        .info-box {
+            background: rgba(59, 130, 246, 0.1); 
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            color: #93c5fd; 
+            padding: 0.75rem; 
+            border-radius: 8px; 
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+        .info-box code { background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 4px; color: white; }
+
+        form#uploadForm {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        input[type="file"] {
+            background: var(--input-bg);
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            flex-grow: 1;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        input[type="file"]::file-selector-button {
+            display: none; /* Hide default ugly button */
+        }
+        /* Custom file input text logic would be cleaner but let's keep it simple style */
+        input[type="file"]:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            color: white;
+        }
+
+        /* Progress & Spinner */
         .progress-wrapper {
             margin-top: 1rem;
             display: none;
+            background: rgba(0,0,0,0.2);
+            padding: 1rem;
+            border-radius: 12px;
         }
         .progress-bar {
             width: 100%;
-            height: 20px;
-            background-color: #e9ecef;
-            border-radius: 10px;
+            height: 6px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
             overflow: hidden;
-            position: relative;
+            margin-bottom: 0.5rem;
         }
         .progress-fill {
             height: 100%;
-            background-color: var(--success-color);
+            background-color: var(--primary);
             width: 0%;
             transition: width 0.2s ease;
         }
         .progress-text {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-align: right;
+        }
+        
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s ease-in-out infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        #status-message {
             margin-top: 0.5rem;
             font-size: 0.9rem;
-            color: #666;
-            text-align: center;
+            color: var(--text-muted);
         }
 
-        table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; padding: 1rem; border-bottom: 1px solid var(--border-color); }
-        th { font-weight: 600; color: #666; }
-        tr:last-child td { border-bottom: none; }
+        /* Table */
+        table { 
+            width: 100%; 
+            border-collapse: separate; 
+            border-spacing: 0 0.5rem; 
+        }
         
-        .actions { display: flex; gap: 0.5rem; }
-        .empty-state { text-align: center; padding: 3rem; color: #888; }
-
-        /* Modal styling */
-        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; }
-        .modal.active { display: flex; }
-        .modal-content { background: white; padding: 2rem; border-radius: 8px; width: 400px; }
-        .modal-title { margin-top:0; }
-        
-        #status-message {
-            margin-top: 1rem;
-            text-align: center;
+        thead th {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            color: var(--text-muted);
             font-weight: 500;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border-color);
         }
+        
+        tbody tr {
+            background: var(--card-bg);
+            transition: background 0.2s;
+        }
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+        
+        td { 
+            padding: 1rem; 
+            vertical-align: middle;
+            color: white;
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+        td:first-child { border-left: 1px solid var(--border-color); border-top-left-radius: 12px; border-bottom-left-radius: 12px; }
+        td:last-child { border-right: 1px solid var(--border-color); border-top-right-radius: 12px; border-bottom-right-radius: 12px; }
+
+        .actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+        .empty-state { text-align: center; padding: 4rem; color: var(--text-muted); font-style: italic; background: transparent !important; }
+
+        /* Modals */
+        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); backdrop-filter: blur(5px); align-items:center; justify-content:center; z-index: 100; }
+        .modal.active { display: flex; }
+        .modal-content { 
+            background: #111827; 
+            padding: 2rem; 
+            border-radius: 16px; 
+            width: 400px; 
+            border: 1px solid var(--border-color); 
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+        .modal-title { margin-top:0; margin-bottom: 1.5rem; font-weight: 500; font-size: 1.25rem; }
+        
+        .modal input[type="text"] {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            color: white;
+            font-family: inherit;
+            box-sizing: border-box;
+        }
+        .modal input[type="text"]:focus { outline: none; border-color: var(--primary); }
     </style>
 </head>
 <body>
 
+<div class="glow"></div>
+
 <header>
     <h1>Krpano CMS</h1>
     <div style="display:flex; gap:0.5rem;">
-        <a href="logout.php" class="btn btn-outline">Log Out</a>
+        <a href="logout.php" class="btn btn-outline" style="font-size: 0.8rem;">Log Out</a>
     </div>
 </header>
 
 <div class="container">
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value"><?= $maxMb ?> MB</div>
+            <div class="stat-label">Max Upload</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value"><?= $memoryLimit ?></div>
+            <div class="stat-label">Memory</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value"><?= $maxExecutionTime ?>s</div>
+            <div class="stat-label">Timeout</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value"><?= PHP_VERSION ?></div>
+            <div class="stat-label">PHP</div>
+        </div>
+    </div>
+
     <div class="upload-section">
-        <h3>Ladda upp nytt projekt</h3>
-        <div style="background: #e9f7fe; border-left: 4px solid #007bff; padding: 1rem; margin-bottom: 1rem; font-size: 0.9rem;">
-            <strong>Hur ZIP-filen ska se ut:</strong><br>
-            När du packar upp din ZIP ska mappen "inuti" innehålla <code>tour.html</code> direkt.<br>
-            Det vill säga, ZIP-filen ska <em>inte</em> innehålla en övermapp (t.ex. <code>projekt/tour.html</code>) utan filerna ska ligga direkt i roten av arkivet (t.ex. <code>myproject.zip</code> innehåller <code>tour.html</code>, <code>tour.xml</code>, osv).<br>
-            <br>
-            Mappen som skapas på servern får samma namn som din ZIP-fil.
+        <div class="upload-header">
+            <h3>Ladda upp nytt projekt</h3>
+        </div>
+        
+        <div class="info-box">
+             ZIP-filen ska innehålla <code>tour.html</code> m.fl. <strong>direkt</strong> i roten. Mappen på servern får ZIP-filens namn.
         </div>
 
-        <form id="uploadForm" enctype="multipart/form-data" style="display:flex; gap:0.5rem; align-items:center;">
+        <form id="uploadForm" enctype="multipart/form-data">
             <input type="file" name="zipfile" id="zipfile" required accept=".zip">
-            <button type="submit" class="btn btn-success" id="uploadBtn">Ladda upp ZIP</button>
+            <button type="submit" class="btn btn-primary" id="uploadBtn" style="padding: 0.5rem 1.5rem;">Ladda upp</button>
         </form>
         
         <div class="progress-wrapper" id="progressWrapper">
             <div class="progress-bar">
                 <div class="progress-fill" id="progressFill"></div>
             </div>
-            <div class="progress-text" id="progressText">0%</div>
-            <div id="status-message"></div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <div class="spinner" id="loadingSpinner"></div>
+                    <div id="status-message"></div>
+                </div>
+                <div class="progress-text" id="progressText">0%</div>
+            </div>
         </div>
     </div>
 
@@ -381,6 +608,26 @@ if (is_dir($projectDir)) {
     const progressFill = document.getElementById('progressFill');
     const progressText = document.getElementById('progressText');
     const statusMessage = document.getElementById('status-message');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+
+    // Server limits from PHP
+    const MAX_BYTES = <?= $maxBytes ?>;
+    const MAX_MB = <?= $maxMb ?>;
+
+    fileInput.addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) {
+            if (file.size > MAX_BYTES) {
+                alert(`Filen är för stor! \nDin fil: ${(file.size / 1024 / 1024).toFixed(2)} MB\nMax tillåtet: ${MAX_MB} MB\n\nKontrollera 'upload_max_filesize' i din serverkonfiguration.`);
+                this.value = ''; // Clear input
+                uploadBtn.disabled = true;
+                statusMessage.innerText = '';
+                return;
+            } else {
+                uploadBtn.disabled = false;
+            }
+        }
+    });
 
     form.addEventListener('submit', function(e) {
         e.preventDefault();
@@ -388,13 +635,19 @@ if (is_dir($projectDir)) {
         const file = fileInput.files[0];
         if (!file) return;
 
+        if (file.size > MAX_BYTES) {
+            alert(`Filen är för stor (${(file.size / 1024 / 1024).toFixed(2)} MB). Max är ${MAX_MB} MB.`);
+            return;
+        }
+
         // Reset UI
         uploadBtn.disabled = true;
         progressWrapper.style.display = 'block';
+        loadingSpinner.style.display = 'none';
         progressFill.style.width = '0%';
         progressText.innerText = '0%';
         statusMessage.innerText = 'Laddar upp...';
-        statusMessage.style.color = '#333';
+        statusMessage.style.color = 'var(--text-muted)';
 
         const formData = new FormData();
         formData.append('zipfile', file);
@@ -410,6 +663,7 @@ if (is_dir($projectDir)) {
                 
                 if (percent === 100) {
                     statusMessage.innerText = 'Packar upp filer... (Detta kan ta en stund)';
+                    loadingSpinner.style.display = 'block';
                 }
             }
         });
@@ -417,16 +671,17 @@ if (is_dir($projectDir)) {
         // Load event (complete)
         xhr.addEventListener('load', function() {
             uploadBtn.disabled = false;
+            loadingSpinner.style.display = 'none';
             
             try {
                 const response = JSON.parse(xhr.responseText);
                 if (response.success) {
                     statusMessage.innerText = response.message;
-                    statusMessage.style.color = 'green';
+                    statusMessage.style.color = 'var(--success-color)';
                     setTimeout(() => window.location.reload(), 1500); // Reload after success
                 } else {
                     statusMessage.innerText = 'Fel: ' + response.message;
-                    statusMessage.style.color = 'red';
+                    statusMessage.style.color = 'var(--danger-color)';
                 }
             } catch (e) {
                 console.error("JSON Parse Error:", e);
@@ -434,15 +689,16 @@ if (is_dir($projectDir)) {
                 // Extract a meaningful error if possible, otherwise show raw start
                 let rawSnippet = xhr.responseText.substring(0, 200).replace(/</g, "&lt;");
                 statusMessage.innerHTML = 'Kunde inte läsa svaret från servern. <br>Troligt fel: " ' + rawSnippet + '..."<br>Kontrollera konsolen (F12) för mer info.';
-                statusMessage.style.color = 'red';
+                statusMessage.style.color = 'var(--danger-color)';
             }
         });
 
         // Error event
         xhr.addEventListener('error', function() {
             uploadBtn.disabled = false;
+            loadingSpinner.style.display = 'none';
             statusMessage.innerText = 'Ett nätverksfel uppstod (XHR Error).';
-            statusMessage.style.color = 'red';
+            statusMessage.style.color = 'var(--danger-color)';
         });
 
         xhr.open('POST', 'upload.php', true);
