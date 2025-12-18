@@ -524,7 +524,9 @@ if (file_exists($authFile)) {
                 ?>
                 <div class="group-header" onclick="toggleGroup('<?= htmlspecialchars($groupName) ?>')">
                     <div class="group-title">
-                        <span style="font-size:1.2rem;">📁</span> 
+                        <span style="font-size:1.2rem;">
+                            <?= $token ? '🔒' : '📁' ?>
+                        </span> 
                         <?= htmlspecialchars($groupName) ?> 
                         <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal; margin-left:0.5rem; background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:12px;"><?= count($projects) ?> projekt</span>
                     </div>
