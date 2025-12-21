@@ -102,11 +102,20 @@ if ($targetDir && is_dir($targetDir)) {
         return @rmdir($dir);
     }
 
-    if (forceDelete($targetDir)) {
+    $deleted = false;
+    for ($i = 0; $i < 3; $i++) {
+        if (forceDelete($targetDir)) {
+            $deleted = true;
+            break;
+        }
+        usleep(100000); // Wait 100ms before retrying
+    }
+
+    if ($deleted) {
         echo json_encode(['success' => true]);
     } else {
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => "Failed to delete directory completely."]);
+        echo json_encode(['success' => false, 'message' => "Kunde inte ta bort mappen helt (försökte 3 gånger)."]);
     }
 } else {
     http_response_code(404);

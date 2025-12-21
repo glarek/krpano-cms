@@ -391,8 +391,6 @@
 			<div class="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
 				<div class="flex items-center gap-4">
 					<img src="/img/GRIT_LOGO.svg" alt="Logo" class="h-6 brightness-0 invert" />
-					<div class="mx-2 h-6 w-px bg-white/10"></div>
-					<h1 class="text-lg font-semibold tracking-tight">Krpano CMS</h1>
 				</div>
 
 				<div class="flex items-center gap-3">
@@ -403,7 +401,7 @@
 						onclick={() => (settingsDialogOpen = true)}
 					>
 						<Settings class="mr-2 h-4 w-4" />
-						Inställningar
+						<span class="hidden md:inline-flex">Inställningar</span>
 					</Button>
 					<Button
 						variant="ghost"
@@ -412,7 +410,7 @@
 						onclick={handleLogout}
 					>
 						<LogOut class="mr-2 h-4 w-4" />
-						Logga ut
+						<span class="hidden md:inline-flex">Logga ut</span>
 					</Button>
 				</div>
 			</div>
@@ -494,7 +492,7 @@
 					{#each Object.entries(data.groups) as [groupName, pjs]}
 						<Card.Root class="border-white/5 bg-white/5">
 							<Card.Header class="pb-0">
-								<div class="flex items-center justify-between">
+								<div class="flex flex-col justify-between gap-2 md:flex-row md:items-center">
 									<div class="space-y-1">
 										<div class="flex items-center gap-3">
 											<Card.Title class="text-xl font-medium">
@@ -505,7 +503,7 @@
 													class="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-500"
 												>
 													<Lock class="h-3 w-3" />
-													<span>Skyddad</span>
+													<span class="hidden md:inline-flex">Skyddad</span>
 												</div>
 											{/if}
 										</div>
@@ -526,7 +524,7 @@
 												target="_blank"
 											>
 												<ExternalLink class="h-4 w-4 text-primary" />
-												Öppna delad vy
+												<span class="hidden md:inline-flex">Öppna delad vy</span>
 											</Button>
 										{/if}
 
@@ -537,7 +535,7 @@
 											onclick={() => openUploadDialog(groupName)}
 										>
 											<UploadCloud class="h-4 w-4" />
-											Ladda upp
+											<span class="hidden md:inline-flex">Ladda upp</span>
 										</Button>
 
 										<DropdownMenu.Root>
@@ -619,7 +617,7 @@
 															target="_blank"
 														>
 															<ExternalLink class="h-3.5 w-3.5" />
-															Öppna
+															<span class="hidden md:inline-flex">Öppna</span>
 														</Button>
 
 														<div class="mx-1 h-4 w-px bg-white/10"></div>
@@ -983,7 +981,7 @@
 
 	/* Extraction progress bar styles */
 	:global(.extract-progress [data-slot='progress-indicator']) {
-		background: linear-gradient(
+		background-image: linear-gradient(
 			45deg,
 			#22c55e 25%,
 			#16a34a 25%,
@@ -994,7 +992,8 @@
 			#16a34a
 		) !important;
 		background-size: 40px 40px !important;
-		animation: progress-bar-stripes 1s linear infinite;
+		background-position: 0 0;
+		animation: progress-bar-stripes 1s linear infinite !important;
 	}
 
 	@keyframes progress-bar-stripes {
