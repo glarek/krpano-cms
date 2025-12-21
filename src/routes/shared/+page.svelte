@@ -98,7 +98,7 @@
 			<div>
 				<h2 class="flex items-center gap-3 text-3xl font-bold tracking-tight">
 					<Folder class="h-8 w-8 text-primary" />
-					{groupName.replace(/-/g, ' ')}
+					{decodeURIComponent(groupName)}
 				</h2>
 				<p class="mt-2 text-white/40">Visar {projects.length} delade projekt</p>
 			</div>
@@ -120,7 +120,7 @@
 											<Eye
 												class="h-4 w-4 text-white/20 transition-transform group-hover/row:scale-110 group-hover/row:text-primary"
 											/>
-											<span class="text-lg font-medium">{pj.replace(/-/g, ' ')}</span>
+											<span class="text-lg font-medium">{decodeURIComponent(pj)}</span>
 										</div>
 									</Table.Cell>
 									<Table.Cell class="pr-8 text-right">
