@@ -30,7 +30,9 @@
 		Unlock,
 		RefreshCw,
 		Eye,
-		UploadCloud
+		UploadCloud,
+		Settings,
+		User
 	} from '@lucide/svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
@@ -59,6 +61,13 @@
 	let uploadFile = $state(null);
 	let uploadTargetGroup = $state('');
 	let uploadProgress = $state(0);
+
+	// Settings State
+	let settingsDialogOpen = $state(false);
+	let settingsForm = $state({
+		username: 'admin', // default, maybe load from data if available
+		password: ''
+	});
 
 	function triggerConfirm(title, description, action) {
 		confirmConfig = {
@@ -127,6 +136,30 @@
 		} finally {
 			actionLoading = false;
 			uploadProgress = 0;
+		}
+	}
+
+	async function handleUpdateProfile() {
+		if (!settingsForm.username.trim()) return;
+		actionLoading = true;
+		try {
+			const res = await fetch('/api/update_profile.php', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(settingsForm)
+			});
+			const result = await res.json();
+			if (result.success) {
+				toast.success('Profil uppdaterad');
+				settingsDialogOpen = false;
+				settingsForm.password = ''; // Clear password
+			} else {
+				toast.error(result.message || result.error || 'Uppdatering misslyckades');
+			}
+		} catch (e) {
+			toast.error('Ett fel uppstod vid uppdatering');
+		} finally {
+			actionLoading = false;
 		}
 	}
 
@@ -320,6 +353,15 @@
 				</div>
 
 				<div class="flex items-center gap-3">
+					<Button
+						variant="ghost"
+						size="sm"
+						class="text-white/60 hover:text-white"
+						onclick={() => (settingsDialogOpen = true)}
+					>
+						<Settings class="mr-2 h-4 w-4" />
+						Inställningar
+					</Button>
 					<Button
 						variant="ghost"
 						size="sm"
@@ -816,6 +858,53 @@
 		</AlertDialog.Footer>
 	</AlertDialog.Content>
 </AlertDialog.Root>
+
+<!-- Settings Dialog -->
+<Dialog.Root bind:open={settingsDialogOpen}>
+	<Dialog.Content class="rounded-2xl border-white/10 bg-[#1a1f2e] text-white">
+		<Dialog.Header>
+			<Dialog.Title>Inställningar</Dialog.Title>
+			<Dialog.Description class="text-white/50">
+				Uppdatera administratörsuppgifter.
+			</Dialog.Description>
+		</Dialog.Header>
+		<div class="space-y-4 py-4">
+			<div class="space-y-2">
+				<Label for="settings-username">Användarnamn</Label>
+				<Input
+					id="settings-username"
+					bind:value={settingsForm.username}
+					class="border-white/10 bg-white/5 text-white"
+				/>
+			</div>
+			<div class="space-y-2">
+				<Label for="settings-password">Nytt Lösenord</Label>
+				<Input
+					id="settings-password"
+					type="password"
+					bind:value={settingsForm.password}
+					placeholder="Lämna tomt för att behålla nuvarande"
+					class="border-white/10 bg-white/5 text-white"
+				/>
+			</div>
+		</div>
+		<Dialog.Footer>
+			<Button variant="ghost" onclick={() => (settingsDialogOpen = false)}>Avbryt</Button>
+			<Button
+				class="bg-primary hover:bg-primary/90"
+				onclick={handleUpdateProfile}
+				disabled={actionLoading}
+			>
+				{#if actionLoading}
+					<div
+						class="border-top-white mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white/20"
+					></div>
+				{/if}
+				Spara
+			</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
 
 <style>
 	:global(.border-top-primary) {
