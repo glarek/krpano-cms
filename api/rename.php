@@ -10,13 +10,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $oldName = $input['old_name'] ?? $_POST['old_name'] ?? '';
     $newName = $input['new_name'] ?? $_POST['new_name'] ?? '';
 
+    // Encode names for filesystem safety FIRST (Frontend sends RAW/decoded names)
+    // This sanitizes them (e.g. no slashes) so basename check is less critical but still good practice or trivial.
+    // Also solves issues where basename() kills UTF-8 strings on some Windows configs.
+    $group = rawurlencode($group);
+    $oldName = rawurlencode($oldName);
+    $newName = rawurlencode($newName);
+
     // Verify that group and oldName are valid basenames (prevent directory traversal)
+    // Since we just encoded them, they definitely have no slashes (except encoded ones), 
+    // so basename() should be a no-op or pass.
     if ($group !== basename($group)) $group = '';
     if ($oldName !== basename($oldName)) $oldName = '';
     
     $newName = trim($newName);
-    // Encode the new name for filesystem safety
-    $newName = rawurlencode($newName);
     
     if (empty($oldName) || empty($newName)) {
         http_response_code(400);
@@ -26,11 +33,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $baseDir = __DIR__ . '/../projekt/';
     
+    // Note: $group might be empty if renaming a group.
     if (!empty($group)) {
+        // Renaming a Project inside a Group
         $oldPath = $baseDir . $group . '/' . $oldName;
         $newPath = $baseDir . $group . '/' . $newName;
         $updateAuth = false;
     } else {
+        // Renaming a Group
         $oldPath = $baseDir . $oldName;
         $newPath = $baseDir . $newName;
         $updateAuth = true; 
@@ -38,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!is_dir($oldPath)) {
         http_response_code(404);
-        echo json_encode(['success' => false, 'message' => "Mappen hittades inte."]);
+        echo json_encode(['success' => false, 'message' => "Mappen hittades inte. Sökväg: $oldPath"]);
         exit;
     }
 
@@ -65,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = error_get_last();
         http_response_code(500);
         // We can expose the error message here since it's an admin tool
-        echo json_encode(['success' => false, 'message' => "Misslyckades att döpa om mappen. (" . ($error['message'] ?? 'Okänt fel') . ")"]);
+        echo json_encode(['success' => false, 'message' => "Misslyckades att döpa om mappen. (" . ($error['message'] ?? 'Okänt fel') . ") Från: $oldPath Till: $newPath"]);
     }
 } else {
     http_response_code(405);

@@ -48,8 +48,9 @@ if ($isProtected) {
 
 // Scan projects for this group
 $projectDir = __DIR__ . '/../projekt/';
-$groupPath = $projectDir . $groupName;
-$projects = [];
+// Always encode group name to match file system (created via web interface)
+$encodedName = rawurlencode($groupName);
+$groupPath = $projectDir . $encodedName;
 
 if (is_dir($groupPath)) {
     $items = scandir($groupPath);
@@ -68,6 +69,7 @@ if (is_dir($groupPath)) {
 echo json_encode([
     'success' => true,
     'group_name' => $groupName,
+    'group_id' => $encodedName, // The encoded FS name for URL generation
     'projects' => $projects,
     'is_protected' => $isProtected
 ]);

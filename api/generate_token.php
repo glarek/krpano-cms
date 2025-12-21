@@ -16,6 +16,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => false, 'message' => 'Ogiltigt projektnamn.']);
         exit;
     }
+    
+    // Ensure we work with the encoded name (keys in auth file must be matching FS/URL)
+    // Try to detect if it's already encoded? rawurlencode encodes %. 
+    // Ideally frontend sends raw and we encode here.
+    // If frontend sends encoded, double encoding is bad.
+    // Let's assume frontend sends raw (standard JSON) and we enforce encoding here.
+    // But wait, if I have a project "100% Real", raw is "100% Real", encoded "100%25 Real".
+    // If I just assume raw -> rawurlencode.
+    $project = rawurlencode($project);
 
     $currentData = [];
     if (file_exists($dataFile)) {

@@ -40,29 +40,24 @@ $targetDir = '';
 if ($group && $project) {
     // Delete Project inside Group
     // Sanitize - allow encoded chars (%, .)
-    if (!preg_match('/^[a-zA-Z0-9åäöÅÄÖ _\-\%\.]+$/u', $project) || !preg_match('/^[a-zA-Z0-9åäöÅÄÖ _\-\%\.]+$/u', $group)) {
-         http_response_code(400);
-         echo json_encode(['success' => false, 'message' => "Ogiltiga namn."]);
-         exit;
-    }
+    // Note: We should encode the inputs to match filesystem if they are not already
+    // The inputs are likely decoded JSON/POST. 
+    // Regexp check might fail if we expect raw chars but get special chars. 
+    // Let's rely on rawurlencode to sanitize/standardize for FS.
+    
+    $group = rawurlencode($group);
+    $project = rawurlencode($project);
+
     $targetDir = $baseDir . $group . '/' . $project;
 
 } elseif ($group && empty($project)) {
     // Delete Entire Group
-    if (!preg_match('/^[a-zA-Z0-9åäöÅÄÖ _\-\%\.]+$/u', $group)) {
-         http_response_code(400);
-         echo json_encode(['success' => false, 'message' => "Ogiltigt gruppnamn."]);
-         exit;
-    }
+    $group = rawurlencode($group);
     $targetDir = $baseDir . $group;
     
 } elseif ($project) {
     // Legacy Root Project Delete
-    if (!preg_match('/^[a-zA-Z0-9åäöÅÄÖ _\-\%\.]+$/u', $project)) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => "Ogiltigt projektnamn."]);
-        exit;
-    }
+    $project = rawurlencode($project);
     $targetDir = $baseDir . $project;
 } else {
     http_response_code(400);

@@ -106,7 +106,8 @@
 		uploadProgress = 0;
 
 		const formData = new FormData();
-		formData.append('group', uploadTargetGroup);
+		// Send raw group name, backend will encode it to find the folder
+		formData.append('group', decodeURIComponent(uploadTargetGroup));
 		formData.append('file', uploadFile);
 
 		try {
@@ -174,7 +175,7 @@
 
 	function requestDelete(group, project) {
 		const type = project ? 'projektet' : 'gruppen';
-		const name = project || group;
+		const name = project ? decodeURIComponent(project) : decodeURIComponent(group);
 		triggerConfirm(
 			`Ta bort ${type}?`,
 			`Är du säker på att du vill ta bort ${name}? Detta går inte att ångra.`,
@@ -187,7 +188,10 @@
 			const res = await fetch('/api/delete.php', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ group, project })
+				body: JSON.stringify({
+					group: decodeURIComponent(group),
+					project: project ? decodeURIComponent(project) : ''
+				})
 			});
 			const result = await res.json();
 			if (result.success) {
@@ -219,8 +223,8 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					group: renameTarget.type === 'group' ? '' : renameTarget.group,
-					old_name: renameTarget.old_name,
+					group: renameTarget.type === 'group' ? '' : decodeURIComponent(renameTarget.group),
+					old_name: decodeURIComponent(renameTarget.old_name),
 					new_name: newName
 				})
 			});
@@ -265,22 +269,51 @@
 	}
 
 	function getTourUrl(group, project) {
-		let url = group ? `/projekt/${group}/${project}/tour.html` : `/projekt/${project}/tour.html`;
+		const encodedGroup = group ? encodeURIComponent(group) : '';
+		const encodedProject = encodeURIComponent(project);
+		let url = group
+			? `/projekt/${encodedGroup}/${encodedProject}/tour.html`
+			: `/projekt/${encodedProject}/tour.html`;
+
+		// Check auth using the raw group name (keys in authData usually match the raw identifier or we need to be careful)
+		// If authData keys are encoded, we might need to match that.
+		// Based on 'project_auth_data.php' having 'Bost%C3%A4der', it seems keys ARE encoded.
+		// Let's try to look up with encoded name if raw fails, or just standardise.
+		// The current `isSecure` uses `name` (raw). If keys are encoded, `isSecure("Bostäder")` might fail if key is "Bost%C3%A4der".
+		// But let's fix the URL first.
 		if (group && isSecure(group)) {
-			url += `?token=${data.authData[group].token}`;
+			url += `?token=${getToken(group)}`;
 		}
 		return url;
 	}
 
 	function isSecure(name) {
-		return data.authData && data.authData[name] && data.authData[name].token;
+		if (!data.authData) return false;
+		// Debug logging
+		// console.log('isSecure check:', name, 'Keys:', Object.keys(data.authData));
+
+		// Try raw name first
+		if (data.authData[name] && data.authData[name].token) return true;
+		// Try encoded name (since PHP keys might be encoded)
+		const encoded = encodeURIComponent(name);
+		if (data.authData[encoded] && data.authData[encoded].token) return true;
+		return false;
+	}
+
+	function getToken(name) {
+		if (!data.authData) return null;
+		if (data.authData[name]?.token) return data.authData[name].token;
+		const encoded = encodeURIComponent(name);
+		if (data.authData[encoded]?.token) return data.authData[encoded].token;
+		return null;
 	}
 
 	function requestTokenAction(group, action) {
+		const displayGroup = decodeURIComponent(group);
 		if (action === 'delete') {
 			triggerConfirm(
 				'Ta bort skydd?',
-				'Är du säker på att du vill ta bort skyddet? Länken kommer att sluta fungera.',
+				`Är du säker på att du vill ta bort skyddet för ${displayGroup}? Länken kommer att sluta fungera.`,
 				() => performTokenAction(group, action)
 			);
 		} else if (action === 'generate' && isSecure(group)) {
@@ -300,7 +333,7 @@
 			const res = await fetch('/api/generate_token.php', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ project_name: group, action })
+				body: JSON.stringify({ project_name: decodeURIComponent(group), action })
 			});
 			const result = await res.json();
 			if (result.success) {
@@ -477,7 +510,9 @@
 												variant="secondary"
 												size="sm"
 												class="h-9 gap-2 bg-white/5 hover:bg-white/10"
-												href="/shared?id={groupName}&token={data.authData[groupName].token}"
+												href="/shared?id={encodeURIComponent(
+													decodeURIComponent(groupName)
+												)}&token={getToken(groupName)}"
 												target="_blank"
 											>
 												<ExternalLink class="h-4 w-4 text-primary" />

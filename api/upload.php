@@ -37,6 +37,8 @@ if ($ext !== 'zip') {
 
 // Sanitize project name using rawurlencode
 $projectName = rawurlencode($filename);
+// Encode group name to match filesystem
+$group = rawurlencode($group);
 
 $targetDir = __DIR__ . '/../projekt/' . $group . '/' . $projectName;
 

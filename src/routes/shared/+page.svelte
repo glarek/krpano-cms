@@ -11,6 +11,7 @@
 	let loading = $state(true);
 	let error = $state('');
 	let groupName = $state('');
+	let groupId = $state(''); // The FS encoded name
 	let projects = $state([]);
 	// CHANGED: Use query param 'id' and 'token'
 	let id = $derived($page.url.searchParams.get('id') || '');
@@ -25,6 +26,7 @@
 			const data = await res.json();
 			if (data.success) {
 				groupName = data.group_name;
+				groupId = data.group_id;
 				projects = data.projects;
 			} else {
 				error = data.message || 'Kunde inte hämta projekt.';
@@ -46,8 +48,14 @@
 		}
 	});
 
-	function getTourUrl(group, project) {
-		let url = `/projekt/${group}/${project}/tour.html`;
+	function getTourUrl(project) {
+		// groupId is already encoded (FS name), so we just need to ensure it's URL safe if it has extra special chars?
+		// Actually, groupId is e.g. "Bost%C3%A4der".
+		// encodeURIComponent("Bost%C3%A4der") -> "Bost%25C3%25A4der".
+		// This matches what we need for URL path to static server.
+		const encodedGroup = encodeURIComponent(groupId);
+		const encodedProject = encodeURIComponent(project);
+		let url = `/projekt/${encodedGroup}/${encodedProject}/tour.html`;
 		if (token) url += `?token=${token}`;
 		return url;
 	}
@@ -120,7 +128,7 @@
 											variant="secondary"
 											size="sm"
 											class="bg-white/10 text-white hover:bg-white/20"
-											href={getTourUrl(groupName, pj)}
+											href={getTourUrl(pj)}
 											target="_blank"
 										>
 											Öppna
