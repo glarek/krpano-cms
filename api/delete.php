@@ -74,7 +74,8 @@ if ($targetDir && is_dir($targetDir)) {
         }
 
         if (!is_dir($dir)) {
-            return unlink($dir);
+            @chmod($dir, 0777);
+            return @unlink($dir);
         }
 
         $it = new RecursiveIteratorIterator(
@@ -83,21 +84,20 @@ if ($targetDir && is_dir($targetDir)) {
         );
 
         foreach ($it as $file) {
-            // Force permissions to ensure we can delete
-            @chmod($file->getRealPath(), 0777);
+            $path = $file->getRealPath();
+            @chmod($path, 0777);
             
             if ($file->isDir()) {
-                if (!@rmdir($file->getRealPath())) {
+                if (!@rmdir($path)) {
                     return false;
                 }
             } else {
-                if (!@unlink($file->getRealPath())) {
+                if (!@unlink($path)) {
                     return false;
                 }
             }
         }
         
-        // Remove the root directory itself
         @chmod($dir, 0777);
         return @rmdir($dir);
     }

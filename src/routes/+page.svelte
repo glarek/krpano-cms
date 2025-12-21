@@ -61,6 +61,7 @@
 	let uploadFile = $state(null);
 	let uploadTargetGroup = $state('');
 	let uploadProgress = $state(0);
+	let extracting = $state(false);
 
 	// Settings State
 	let settingsDialogOpen = $state(false);
@@ -104,6 +105,7 @@
 		if (!uploadFile || !uploadTargetGroup) return;
 		actionLoading = true;
 		uploadProgress = 0;
+		extracting = false;
 
 		const formData = new FormData();
 		// Send raw group name, backend will encode it to find the folder
@@ -118,6 +120,10 @@
 				onUploadProgress: (progressEvent) => {
 					const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
 					uploadProgress = percentCompleted;
+					// When upload reaches 100%, set extracting to true
+					if (percentCompleted === 100) {
+						extracting = true;
+					}
 				}
 			});
 
@@ -137,6 +143,7 @@
 		} finally {
 			actionLoading = false;
 			uploadProgress = 0;
+			extracting = false;
 		}
 	}
 
@@ -847,12 +854,22 @@
 		</div>
 		<Dialog.Footer class="flex flex-col gap-4 sm:flex-col">
 			{#if actionLoading}
-				<div class="w-full space-y-1">
-					<div class="flex justify-between text-xs text-white/60">
-						<span>Laddar upp...</span>
-						<span>{uploadProgress}%</span>
+				<div class="w-full space-y-3">
+					<div class="space-y-1">
+						<div class="flex justify-between text-xs text-white/60">
+							<span>Laddar upp...</span>
+							<span>{uploadProgress}%</span>
+						</div>
+						<Progress value={uploadProgress} class="h-2" />
 					</div>
-					<Progress value={uploadProgress} class="h-2" />
+					{#if extracting}
+						<div class="space-y-1">
+							<div class="flex justify-between text-xs text-white/60">
+								<span>Extraherar filer...</span>
+							</div>
+							<Progress value={100} class="extract-progress h-2" />
+						</div>
+					{/if}
 				</div>
 			{/if}
 			<div class="flex justify-end gap-2">
@@ -962,5 +979,30 @@
 	}
 	:global(.border-top-white) {
 		border-top-color: white !important;
+	}
+
+	/* Extraction progress bar styles */
+	:global(.extract-progress [data-slot='progress-indicator']) {
+		background: linear-gradient(
+			45deg,
+			#22c55e 25%,
+			#16a34a 25%,
+			#16a34a 50%,
+			#22c55e 50%,
+			#22c55e 75%,
+			#16a34a 75%,
+			#16a34a
+		) !important;
+		background-size: 40px 40px !important;
+		animation: progress-bar-stripes 1s linear infinite;
+	}
+
+	@keyframes progress-bar-stripes {
+		0% {
+			background-position: 0 0;
+		}
+		100% {
+			background-position: 40px 0;
+		}
 	}
 </style>
