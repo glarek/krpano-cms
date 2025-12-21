@@ -27,7 +27,7 @@
 			if (data.success) {
 				groupName = data.group_name;
 				groupId = data.group_id;
-				projects = data.projects;
+				projects = data.projects || [];
 			} else {
 				error = data.message || 'Kunde inte hämta projekt.';
 			}

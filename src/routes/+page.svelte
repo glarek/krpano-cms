@@ -184,6 +184,7 @@
 	}
 
 	async function performDelete(group, project) {
+		actionLoading = true;
 		try {
 			const res = await fetch('/api/delete.php', {
 				method: 'POST',
@@ -202,6 +203,8 @@
 			}
 		} catch (e) {
 			toast.error('Ett fel uppstod vid borttagning');
+		} finally {
+			actionLoading = false;
 		}
 	}
 
@@ -810,7 +813,7 @@
 <Dialog.Root bind:open={uploadDialogOpen}>
 	<Dialog.Content class="rounded-2xl border-white/10 bg-[#1a1f2e] text-white">
 		<Dialog.Header>
-			<Dialog.Title>Ladda upp projekt till {uploadTargetGroup}</Dialog.Title>
+			<Dialog.Title>Ladda upp projekt till {decodeURIComponent(uploadTargetGroup)}</Dialog.Title>
 			<Dialog.Description class="text-white/50">
 				Välj en ZIP-fil. Projektmappen skapas automatiskt baserat på filnamnet.
 			</Dialog.Description>
@@ -887,7 +890,13 @@
 			<AlertDialog.Action
 				class="border-none bg-red-500 text-white hover:bg-red-600"
 				onclick={confirmConfig.action}
+				disabled={actionLoading}
 			>
+				{#if actionLoading}
+					<div
+						class="border-top-white mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white/20"
+					></div>
+				{/if}
 				Fortsätt
 			</AlertDialog.Action>
 		</AlertDialog.Footer>
