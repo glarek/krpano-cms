@@ -69,7 +69,7 @@ if ($pos !== false) {
     }
 
 
-    $authFile = __DIR__ . '/admin/project_auth_data.php';
+    $authFile = __DIR__ . '/api/project_auth_data.php';
     if (!file_exists($authFile)) {
         return false; // No auth data = Open access
     }
@@ -97,38 +97,9 @@ if ($pos !== false) {
             // Authorized.
         } else {
             // 3. Access Denied
-            ?>
-            <!DOCTYPE html>
-            <html lang="sv">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Åtkomst Nekad</title>
-                <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-                <style>
-                     :root { --primary: oklch(0.6 0.2 255.45); --bg: #0B0F19; --card-bg: rgba(255, 255, 255, 0.03); --text: #fff; }
-                     body { font-family: 'Outfit', sans-serif; background: var(--bg); display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; color: var(--text); }
-                     .box { background: #111827; padding: 3rem; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); width: 100%; max-width: 400px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
-                     h2 { margin-top: 1rem; color: #fff; font-weight: 500; }
-                     p { color: rgba(255,255,255,0.6); line-height: 1.6; }
-                     .logo { margin-bottom: 2rem; }
-                     .icon { font-size: 3rem; margin-bottom: 1rem; display: block; }
-                </style>
-            </head>
-            <body>
-                <div class="box">
-                    <div class="logo">
-                        <img src="<?= $logoSrc ?>" alt="Logo" style="height: 30px; filter: brightness(0) invert(1);">
-                    </div>
-                    <span class="icon">🔒</span>
-                    <h2>Åtkomst Nekad</h2>
-                    <p>Detta projekt är skyddat.</p>
-                    <p>Vänligen använd den unika länken du har fått för att se detta projekt.</p>
-                </div>
-            </body>
-            </html>
-            <?php
-            exit; // Stop serving file
+            // 3. Access Denied
+            header('Location: /access-denied');
+            exit;
         }
     } // End of else (Token Check)
     } // End of if (isset($authData))

@@ -1,7 +1,14 @@
 RewriteEngine On
 
-# Route all requests starting with "projekt/" to router.php
+# 1. Route all requests starting with "projekt/" to router.php
 RewriteRule ^projekt/ router.php [L]
+
+# 2. SvelteKit SPA Routing
+# If it's not a real file or directory, and NOT an API call, send to index.html
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/api/
+RewriteRule ^ index.html [L]
 
 # PHP Settings
 # PHP Settings

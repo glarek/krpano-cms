@@ -10,19 +10,47 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build SvelteKit app
+        run: npm run build
+
+      - name: Prepare production files
+        run: |
+          cp -r api build/
+          cp -r img build/
+          cp router.php build/
+          cp .htaccess build/
+          # Ensure we don't accidentally push a local auth data file if it exists
+          rm -f build/api/project_auth_data.php
+
       - name: Deploy to FTP (Prod)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./
+          local-dir: ./build/
           server-dir: /
           dangerous-clean-slate: false
           exclude: |
             projekt/**
-            admin/project_auth_data.php
+            api/project_auth_data.php
             .git*
             .git*/**
             **/*.bat
             .vscode/**
+            src/**
+            static/**
+            svelte.config.js
+            vite.config.js
+            package.json
+            package-lock.json
+            api-tests.http

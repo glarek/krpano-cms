@@ -1,0 +1,74 @@
+### API Test Suite (Requires REST Client extension in VS Code)
+# Base Variables
+@baseUrl = http://localhost:8000/api
+@username = adrian.larek@gritprojects.se
+@password = hej123
+
+### 1. Check Auth Status (Initially false)
+GET {{baseUrl}}/check_auth.php
+Accept: application/json
+
+### 2. Login
+# @name login
+POST {{baseUrl}}/login.php
+Content-Type: application/json
+
+{
+    "username": "{{username}}",
+    "password": "{{password}}"
+}
+
+### 3. Check Auth Status (Now true)
+GET {{baseUrl}}/check_auth.php
+Accept: application/json
+
+### 4. Dashboard (List Projects & Stats)
+GET {{baseUrl}}/dashboard.php
+Accept: application/json
+
+### 5. Create Group
+POST {{baseUrl}}/create_group.php
+Content-Type: application/json
+
+{
+    "group_name": "Test-Group"
+}
+
+### 6. Rename Group/Project
+POST {{baseUrl}}/rename.php
+Content-Type: application/json
+
+{
+    "old_name": "Test-Group",
+    "new_name": "Renamed-Group"
+}
+
+### 7. Generate Token
+POST {{baseUrl}}/generate_token.php
+Content-Type: application/json
+
+{
+    "project_name": "Renamed-Group",
+    "action": "generate"
+}
+
+### 8. Get Token Status
+POST {{baseUrl}}/generate_token.php
+Content-Type: application/json
+
+{
+    "project_name": "Renamed-Group",
+    "action": "get"
+}
+
+### 9. Delete Group
+POST {{baseUrl}}/delete.php
+Content-Type: application/json
+
+{
+    "group": "Renamed-Group"
+}
+
+### 10. Logout
+POST {{baseUrl}}/logout.php
+Accept: application/json
