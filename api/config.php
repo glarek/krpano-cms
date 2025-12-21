@@ -1,17 +1,26 @@
 <?php
 // api/config.php
 
-// Start session
-// Ensure session is not already started
+// Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
-    // Set headers for CORS if needed later, but for same-domain sveltekit it is fine.
-    // Ideally we return JSON for errors if this file is accessed directly? 
-    // It's a config file, so it just defines things.
+}
+
+/**
+ * Load Mutable Admin Credentials
+ */
+$credsFile = __DIR__ . '/admin_creds.php';
+$username = 'admin';
+$hash = '$2y$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa'; // default: password
+
+if (file_exists($credsFile)) {
+    $creds = include $credsFile;
+    if (is_array($creds)) {
+        $username = $creds['username'] ?? $username;
+        $hash = $creds['hash'] ?? $hash;
+    }
 }
 
 // Admin credentials
-define('ADMIN_USER', 'adrian.larek@gritprojects.se');
-
-// Hash for password
-define('ADMIN_HASH', '$2a$12$A9ImaKd2ubq9fOh06cepJ.kqPf0qWcyXCD8suKcuZoO20em/17JCK'); 
+define('ADMIN_USER', $username);
+define('ADMIN_HASH', $hash);
