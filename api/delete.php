@@ -67,24 +67,47 @@ if ($group && $project) {
 
 if ($targetDir && is_dir($targetDir)) {
     // Recursive delete function
-    function rrmdir($src) {
-        $dir = opendir($src);
-        while(false !== ( $file = readdir($dir)) ) {
-            if (( $file != '.' ) && ( $file != '..' )) {
-                $full = $src . '/' . $file;
-                if ( is_dir($full) ) {
-                    rrmdir($full);
-                } else {
-                    unlink($full);
+    // Recursive delete function with force delete capabilities
+    function forceDelete($dir) {
+        if (!file_exists($dir)) {
+            return true;
+        }
+
+        if (!is_dir($dir)) {
+            return unlink($dir);
+        }
+
+        $it = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+
+        foreach ($it as $file) {
+            // Force permissions to ensure we can delete
+            @chmod($file->getRealPath(), 0777);
+            
+            if ($file->isDir()) {
+                if (!@rmdir($file->getRealPath())) {
+                    return false;
+                }
+            } else {
+                if (!@unlink($file->getRealPath())) {
+                    return false;
                 }
             }
         }
-        closedir($dir);
-        rmdir($src);
+        
+        // Remove the root directory itself
+        @chmod($dir, 0777);
+        return @rmdir($dir);
     }
 
-    rrmdir($targetDir);
-    echo json_encode(['success' => true]);
+    if (forceDelete($targetDir)) {
+        echo json_encode(['success' => true]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => "Failed to delete directory completely."]);
+    }
 } else {
     http_response_code(404);
     echo json_encode(['success' => false, 'message' => "Directory not found."]);
