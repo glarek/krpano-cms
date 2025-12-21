@@ -7,7 +7,7 @@ $ext = pathinfo($path, PATHINFO_EXTENSION);
 
 // Protect /projekt/ directory
 $requestUri = $_SERVER["REQUEST_URI"];
-$pos = strpos($requestUri, '/projekt/');
+$pos = strpos($requestUri, '/projekt');
 
 if ($pos !== false) {
     session_start();
@@ -30,7 +30,8 @@ if ($pos !== false) {
     $projectName = $parts[1] ?? null;
 
     if (!$projectName) {
-        return false; 
+        header("Location: /");
+        exit;
     }
 
     // PREPARE LOGO (Shared Logic)
@@ -311,7 +312,8 @@ if ($pos !== false) {
         exit;
     }
 
-    return false;
+    header("Location: /404");
+    exit;
 }
 
 // 2. Allow admin and other files to be served normally
