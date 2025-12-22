@@ -26,10 +26,16 @@ jobs:
         run: |
           cp -r api build/
           cp -r img build/
-          cp router.php build/
-          cp .htaccess build/
-          # Ensure we don't accidentally push a local auth data file if it exists
+
+          # Setup projekt directory with .htaccess
+          mkdir -p build/projekt
+          cp projekt/.htaccess build/projekt/
+
+          # Remove files we don't want to overwrite in production
           rm -f build/api/project_auth_data.php
+          rm -f build/api/projects_data.php
+          rm -f build/api/admin_creds.php
+          rm -f build/router.php
 
       - name: Deploy to FTP (Prod)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
@@ -42,7 +48,10 @@ jobs:
           dangerous-clean-slate: false
           exclude: |
             projekt/**
+            !projekt/.htaccess
             api/project_auth_data.php
+            api/projects_data.php
+            api/admin_creds.php
             .git*
             .git*/**
             **/*.bat

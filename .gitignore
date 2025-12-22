@@ -1,20 +1,14 @@
 node_modules
 start_server.bat
 router.php
+.htaccess
 
 # Output
 .output
-.vercel
-.netlify
-.wrangler
-/.svelte-kit
-/build
+.svelte-kit
+build
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Env
+# Environment
 .env
 .env.*
 !.env.example
@@ -24,3 +18,19 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project folders
+projekt/*/
+!projekt/.htaccess
