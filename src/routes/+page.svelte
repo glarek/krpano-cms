@@ -477,18 +477,18 @@
 									</div>
 
 									<div class="flex items-center gap-2">
-										{#if groupData.token}
-											<Button
-												variant="secondary"
-												size="sm"
-												class="h-9 gap-2 bg-white/5 hover:bg-white/10"
-												href={`/shared?id=${groupId}&token=${groupData.token}`}
-												target="_blank"
-											>
-												<ExternalLink class="h-4 w-4 text-primary" />
-												<span class="hidden md:inline-flex">Öppna delad vy</span>
-											</Button>
-										{/if}
+										<Button
+											variant="secondary"
+											size="sm"
+											class="h-9 gap-2 bg-white/5 hover:bg-white/10"
+											href={groupData.token
+												? `/shared?id=${groupId}&token=${groupData.token}`
+												: `/shared?id=${groupId}`}
+											target="_blank"
+										>
+											<ExternalLink class="h-4 w-4 text-primary" />
+											<span class="hidden md:inline-flex">Öppna delad vy</span>
+										</Button>
 										<Button
 											variant="secondary"
 											size="sm"

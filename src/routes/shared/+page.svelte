@@ -12,6 +12,7 @@
 	let error = $state('');
 	let groupName = $state('');
 	let groupId = $state(''); // The FS encoded name
+	let isProtected = $state(false);
 	let projects = $state([]);
 	// CHANGED: Use query param 'id' and 'token'
 	let id = $derived($page.url.searchParams.get('id') || '');
@@ -27,6 +28,7 @@
 			if (data.success) {
 				groupName = data.group_name;
 				groupId = data.group_id;
+				isProtected = data.is_protected || false;
 				projects = data.projects || [];
 			} else {
 				error = data.message || 'Kunde inte hämta projekt.';
@@ -87,9 +89,11 @@
 					<h1 class="text-lg font-semibold tracking-tight">Krpano CMS</h1>
 				</div>
 				<div class="flex items-center gap-2">
-					<Badge variant="outline" class="border-amber-500/20 bg-amber-500/10 text-amber-500">
-						<Lock class="mr-1 h-3 w-3" /> Säker vy
-					</Badge>
+					{#if isProtected}
+						<Badge variant="outline" class="border-amber-500/20 bg-amber-500/10 text-amber-500">
+							<Lock class="mr-1 h-3 w-3" /> Säker vy
+						</Badge>
+					{/if}
 				</div>
 			</div>
 		</header>
@@ -98,7 +102,7 @@
 			<div>
 				<h2 class="flex items-center gap-3 text-3xl font-bold tracking-tight">
 					<Folder class="h-8 w-8 text-primary" />
-					{decodeURIComponent(groupName)}
+					{groupName}
 				</h2>
 				<p class="mt-2 text-white/40">Visar {projects.length} delade projekt</p>
 			</div>
