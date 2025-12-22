@@ -87,7 +87,8 @@
 
 	function getTourUrl(project) {
 		const encodedGroup = encodeURIComponent(groupId);
-		const encodedProject = encodeURIComponent(project);
+		// project is an object { name, folder }
+		const encodedProject = encodeURIComponent(project.folder);
 		let url = `/projekt/${encodedGroup}/${encodedProject}/tour.html`;
 		if (token) url += `?token=${token}`;
 		return url;
@@ -205,7 +206,7 @@
 											<h3
 												class="text-lg font-medium text-white transition-colors group-hover:text-primary"
 											>
-												{decodeURIComponent(pj)}
+												{decodeURIComponent(pj.name)}
 											</h3>
 											<p class="flex items-center gap-2 text-sm text-white/30">
 												Virtuell Visning
