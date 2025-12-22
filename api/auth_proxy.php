@@ -37,17 +37,24 @@ $validToken = $groupData['token'] ?? null;
 
 // 4. Check Authorization
 $authorized = false;
-$cookieName = 'krpano_access_' . $groupId;
 
-// A. Check URL Token
-if (isset($_GET['token']) && $_GET['token'] === $validToken) {
+// If NO token is configured for the group, it is public
+if (empty($validToken)) {
     $authorized = true;
-    // Set Cookie (1 hour) path / to allow access to all project assets
-    setcookie($cookieName, $validToken, time() + 3600, '/');
-} 
-// B. Check Cookie
-elseif (isset($_COOKIE[$cookieName]) && $_COOKIE[$cookieName] === $validToken) {
-    $authorized = true;
+} else {
+    // Token exists, enforce checks
+    $cookieName = 'krpano_access_' . $groupId;
+
+    // A. Check URL Token
+    if (isset($_GET['token']) && $_GET['token'] === $validToken) {
+        $authorized = true;
+        // Set Cookie (1 hour) path / to allow access to all project assets
+        setcookie($cookieName, $validToken, time() + 3600, '/');
+    } 
+    // B. Check Cookie
+    elseif (isset($_COOKIE[$cookieName]) && $_COOKIE[$cookieName] === $validToken) {
+        $authorized = true;
+    }
 }
 
 if (!$authorized) {
