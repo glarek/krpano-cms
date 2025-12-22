@@ -1,15 +1,9 @@
 <?php
 // api/delete.php
 require_once 'auth_check.php';
+require_once 'data_helper.php';
 
 header('Content-Type: application/json');
-
-// Read JSON input if sent as JSON, or use $_POST/$_GET
-// Delete usually implies DELETE method, but often passed as POST with _method or just POST.
-// Let's support POST with body params or GET parameters for simplicity in testing, 
-// though POST is safer for state change.
-// The original used GET. Let's switch to POST for better practice, but support GET for easy migration/testing if needed?
-// No, let's stick to POST for mutating actions in an API.
 
 $project = null;
 $group = null;
@@ -24,100 +18,127 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $group = $_POST['group'] ?? null;
     }
 } else {
-     // Allow GET for now? Or strict? 
-     // Strict JSON API usually implies POST/DELETE.
-     // Let's accept GET for now to make it easy to call from simple links if frontend isn't ready,
-     // BUT the goal is an API for SvelteKit. SvelteKit can send POSTs easily.
-     // Let's stick to POST.
      http_response_code(405);
      echo json_encode(['success' => false, 'message' => 'Method Not Allowed. Use POST.']);
      exit;
 }
 
 $baseDir = __DIR__ . '/../projekt/';
-$targetDir = '';
+$projectsData = loadProjects();
+
+// Helper for finding path
+function findPathToDelete($base, $name) {
+    if (is_dir($base . $name)) return $base . $name;
+    if (is_dir($base . rawurlencode($name))) return $base . rawurlencode($name);
+    return null;
+}
+
+function forceDelete($dir) {
+    if (!file_exists($dir)) return true;
+    if (!is_dir($dir)) {
+        @chmod($dir, 0777);
+        return @unlink($dir);
+    }
+    $it = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST
+    );
+    foreach ($it as $file) {
+        $path = $file->getRealPath();
+        @chmod($path, 0777);
+        if ($file->isDir()) {
+            if (!@rmdir($path)) return false;
+        } else {
+            if (!@unlink($path)) return false;
+        }
+    }
+    @chmod($dir, 0777);
+    return @rmdir($dir);
+}
+
+$targetDir = null;
 
 if ($group && $project) {
-    // Delete Project inside Group
-    // Sanitize - allow encoded chars (%, .)
-    // Note: We should encode the inputs to match filesystem if they are not already
-    // The inputs are likely decoded JSON/POST. 
-    // Regexp check might fail if we expect raw chars but get special chars. 
-    // Let's rely on rawurlencode to sanitize/standardize for FS.
-    
-    $group = rawurlencode($group);
-    $project = rawurlencode($project);
-
-    $targetDir = $baseDir . $group . '/' . $project;
+    // Delete Project
+    if (isset($projectsData['groups'][$group]['projects'][$project])) {
+        // Modern Project
+        $info = $projectsData['groups'][$group]['projects'][$project];
+        $groupId = $group;
+        
+        $targetDir = __DIR__ . '/../projekt/' . $groupId . '/' . $info['folder'];
+        
+        // Remove from array immediately? Or after delete success?
+        // Let's assume delete success logic below handles array cleanup via flags or we do it after.
+    } else {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => "Projektet hittades inte i registret."]);
+        exit;
+    }
 
 } elseif ($group && empty($project)) {
-    // Delete Entire Group
-    $group = rawurlencode($group);
-    $targetDir = $baseDir . $group;
-    
+    // Delete Group
+    if (isset($projectsData['groups'][$group])) {
+        $groupId = $group;
+        $targetDir = __DIR__ . '/../projekt/' . $groupId;
+    } else {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => "Gruppen hittades inte i registret."]);
+        exit;
+    }
+
 } elseif ($project) {
-    // Legacy Root Project Delete
-    $project = rawurlencode($project);
-    $targetDir = $baseDir . $project;
+     http_response_code(400);
+     echo json_encode(['success' => false, 'message' => "Operation 'Root Project Delete' is no longer supported."]);
+     exit;
+
 } else {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => "Missing 'group' or 'project' parameter."]);
     exit;
 }
 
-if ($targetDir && is_dir($targetDir)) {
-    // Recursive delete function
-    // Recursive delete function with force delete capabilities
-    function forceDelete($dir) {
-        if (!file_exists($dir)) {
-            return true;
-        }
-
-        if (!is_dir($dir)) {
-            @chmod($dir, 0777);
-            return @unlink($dir);
-        }
-
-        $it = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST
-        );
-
-        foreach ($it as $file) {
-            $path = $file->getRealPath();
-            @chmod($path, 0777);
-            
-            if ($file->isDir()) {
-                if (!@rmdir($path)) {
-                    return false;
-                }
-            } else {
-                if (!@unlink($path)) {
-                    return false;
-                }
-            }
-        }
-        
-        @chmod($dir, 0777);
-        return @rmdir($dir);
+if ($targetDir) {
+    // Check if exists
+    if (!file_exists($targetDir)) {
+          // If array said it exists but disk says no, we should clean array?
+          // For now let's just proceed to clean array.
+          // But strict mode might want to report error?
+          // Let's try to delete if exists.
     }
+}
 
-    $deleted = false;
+// Perform Delete
+$deleted = false;
+if ($targetDir && file_exists($targetDir)) {
     for ($i = 0; $i < 3; $i++) {
         if (forceDelete($targetDir)) {
             $deleted = true;
             break;
         }
-        usleep(100000); // Wait 100ms before retrying
-    }
-
-    if ($deleted) {
-        echo json_encode(['success' => true]);
-    } else {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => "Kunde inte ta bort mappen helt (försökte 3 gånger)."]);
+        usleep(100000);
     }
 } else {
-    http_response_code(404);
-    echo json_encode(['success' => false, 'message' => "Directory not found."]);
+    // If not found on disk, assume deleted or inconsistent.
+    $deleted = true; 
+}
+
+if ($deleted) {
+    // Clean up Data Files
+    if ($group && $project) {
+        if (isset($projectsData['groups'][$group]['projects'][$project])) {
+            unset($projectsData['groups'][$group]['projects'][$project]);
+            saveProjects($projectsData);
+        }
+    } elseif ($group && empty($project)) {
+        if (isset($projectsData['groups'][$group])) {
+            unset($projectsData['groups'][$group]);
+            saveProjects($projectsData);
+        }
+        // Legacy auth file (if exists, kept just in case, but likely obsolete)
+    }
+    
+    echo json_encode(['success' => true]);
+} else {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => "Kunde inte ta bort mappen."]);
 }

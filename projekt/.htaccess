@@ -1,0 +1,5 @@
+RewriteEngine On
+RewriteBase /projekt/
+
+# Route all requests to the auth proxy in the API folder
+RewriteRule ^(.*)$ ../api/auth_proxy.php?file=$1 [QSA,L]

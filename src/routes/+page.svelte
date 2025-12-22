@@ -60,6 +60,7 @@
 	let uploadDialogOpen = $state(false);
 	let uploadFile = $state(null);
 	let uploadTargetGroup = $state('');
+	let uploadTargetName = $state('');
 	let uploadProgress = $state(0);
 	let extracting = $state(false);
 
@@ -82,8 +83,9 @@
 		confirmDialogOpen = true;
 	}
 
-	function openUploadDialog(group) {
-		uploadTargetGroup = group;
+	function openUploadDialog(groupId) {
+		uploadTargetGroup = groupId;
+		uploadTargetName = data.groups[groupId]?.name || groupId;
 		uploadFile = null;
 		uploadDialogOpen = true;
 	}
@@ -109,7 +111,7 @@
 
 		const formData = new FormData();
 		// Send raw group name, backend will encode it to find the folder
-		formData.append('group', decodeURIComponent(uploadTargetGroup));
+		formData.append('group', uploadTargetGroup);
 		formData.append('file', uploadFile);
 
 		try {
@@ -180,25 +182,25 @@
 		}
 	}
 
-	function requestDelete(group, project) {
-		const type = project ? 'projektet' : 'gruppen';
-		const name = project ? decodeURIComponent(project) : decodeURIComponent(group);
+	function requestDelete(groupId, projectKey, displayName) {
+		const type = projectKey ? 'projektet' : 'gruppen';
+		const name = displayName || (projectKey ? projectKey : groupId);
 		triggerConfirm(
 			`Ta bort ${type}?`,
 			`Är du säker på att du vill ta bort ${name}? Detta går inte att ångra.`,
-			() => performDelete(group, project)
+			() => performDelete(groupId, projectKey)
 		);
 	}
 
-	async function performDelete(group, project) {
+	async function performDelete(groupId, projectKey) {
 		actionLoading = true;
 		try {
 			const res = await fetch('/api/delete.php', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					group: decodeURIComponent(group),
-					project: project ? decodeURIComponent(project) : ''
+					group: groupId,
+					project: projectKey // Empty for group delete
 				})
 			});
 			const result = await res.json();
@@ -215,14 +217,9 @@
 		}
 	}
 
-	function openRenameDialog(group, oldName, type) {
-		renameTarget = { group, old_name: oldName, type };
-		// Use decodeURIComponent to show human-readable name in input
-		try {
-			newName = decodeURIComponent(oldName);
-		} catch (e) {
-			newName = oldName;
-		}
+	function openRenameDialog(id, currentName, type) {
+		renameTarget = { id, key: type === 'group' ? id : currentName, name: currentName, type };
+		newName = currentName;
 		renameDialogOpen = true;
 	}
 
@@ -233,8 +230,8 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					group: renameTarget.type === 'group' ? '' : decodeURIComponent(renameTarget.group),
-					old_name: decodeURIComponent(renameTarget.old_name),
+					group: renameTarget.type === 'group' ? '' : renameTarget.id, // Parent Group ID for Project
+					target_id: renameTarget.key, // ID for Group, Name for Project
 					new_name: newName
 				})
 			});
@@ -278,79 +275,46 @@
 		}
 	}
 
-	function getTourUrl(group, project) {
-		const encodedGroup = group ? encodeURIComponent(group) : '';
-		const encodedProject = encodeURIComponent(project);
-		let url = group
-			? `/projekt/${encodedGroup}/${encodedProject}/tour.html`
-			: `/projekt/${encodedProject}/tour.html`;
-
-		// Check auth using the raw group name (keys in authData usually match the raw identifier or we need to be careful)
-		// If authData keys are encoded, we might need to match that.
-		// Based on 'project_auth_data.php' having 'Bost%C3%A4der', it seems keys ARE encoded.
-		// Let's try to look up with encoded name if raw fails, or just standardise.
-		// The current `isSecure` uses `name` (raw). If keys are encoded, `isSecure("Bostäder")` might fail if key is "Bost%C3%A4der".
-		// But let's fix the URL first.
-		if (group && isSecure(group)) {
-			url += `?token=${getToken(group)}`;
+	function getTourUrl(groupId, folder, token) {
+		let url = `/projekt/${groupId}/${folder}/tour.html`;
+		if (token) {
+			url += `?token=${token}`;
 		}
 		return url;
 	}
 
-	function isSecure(name) {
-		if (!data.authData) return false;
-		// Debug logging
-		// console.log('isSecure check:', name, 'Keys:', Object.keys(data.authData));
-
-		// Try raw name first
-		if (data.authData[name] && data.authData[name].token) return true;
-		// Try encoded name (since PHP keys might be encoded)
-		const encoded = encodeURIComponent(name);
-		if (data.authData[encoded] && data.authData[encoded].token) return true;
-		return false;
-	}
-
-	function getToken(name) {
-		if (!data.authData) return null;
-		if (data.authData[name]?.token) return data.authData[name].token;
-		const encoded = encodeURIComponent(name);
-		if (data.authData[encoded]?.token) return data.authData[encoded].token;
-		return null;
-	}
-
-	function requestTokenAction(group, action) {
-		const displayGroup = decodeURIComponent(group);
+	function requestTokenAction(groupId, displayName, action, hasToken) {
 		if (action === 'delete') {
 			triggerConfirm(
 				'Ta bort skydd?',
-				`Är du säker på att du vill ta bort skyddet för ${displayGroup}? Länken kommer att sluta fungera.`,
-				() => performTokenAction(group, action)
+				`Är du säker på att du vill ta bort skyddet för ${displayName}? Länken kommer att sluta fungera.`,
+				() => performTokenAction(groupId, action)
 			);
-		} else if (action === 'generate' && isSecure(group)) {
+		} else if (action === 'generate' && hasToken) {
 			triggerConfirm(
 				'Generera ny länk?',
 				'Detta kommer att generera en ny länk. Den gamla kommer att sluta fungera. Fortsätt?',
-				() => performTokenAction(group, action)
+				() => performTokenAction(groupId, action)
 			);
 		} else {
-			performTokenAction(group, action);
+			performTokenAction(groupId, action);
 		}
 	}
 
-	async function performTokenAction(group, action) {
+	async function performTokenAction(id, action) {
 		actionLoading = true;
 		try {
 			const res = await fetch('/api/generate_token.php', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ project_name: decodeURIComponent(group), action })
+				body: JSON.stringify({ project_name: id, action })
 			});
 			const result = await res.json();
 			if (result.success) {
 				toast.success(result.message);
 				await invalidate('app:dashboard');
 			} else {
-				toast.error(result.message || 'Åtgärd misslyckades');
+				toast.error(result.message || 'Misslyckades');
 			}
 		} catch (e) {
 			toast.error('Ett fel uppstod');
@@ -489,16 +453,16 @@
 				</div>
 
 				<div class="grid grid-cols-1 gap-8">
-					{#each Object.entries(data.groups) as [groupName, pjs]}
+					{#each Object.entries(data.groups) as [groupId, groupData]}
 						<Card.Root class="border-white/5 bg-white/5">
 							<Card.Header class="pb-0">
 								<div class="flex flex-col justify-between gap-2 md:flex-row md:items-center">
 									<div class="space-y-1">
 										<div class="flex items-center gap-3">
 											<Card.Title class="text-xl font-medium">
-												{decodeURIComponent(groupName)}
+												{groupData.name}
 											</Card.Title>
-											{#if isSecure(groupName)}
+											{#if groupData.token}
 												<div
 													class="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-500"
 												>
@@ -508,31 +472,28 @@
 											{/if}
 										</div>
 										<Card.Description class="text-white/40">
-											{pjs.length} projekt
+											{groupData.projects.length} projekt
 										</Card.Description>
 									</div>
 
 									<div class="flex items-center gap-2">
-										{#if isSecure(groupName)}
+										{#if groupData.token}
 											<Button
 												variant="secondary"
 												size="sm"
 												class="h-9 gap-2 bg-white/5 hover:bg-white/10"
-												href="/shared?id={encodeURIComponent(
-													decodeURIComponent(groupName)
-												)}&token={getToken(groupName)}"
+												href={`/shared?id=${groupId}&token=${groupData.token}`}
 												target="_blank"
 											>
 												<ExternalLink class="h-4 w-4 text-primary" />
 												<span class="hidden md:inline-flex">Öppna delad vy</span>
 											</Button>
 										{/if}
-
 										<Button
 											variant="secondary"
 											size="sm"
 											class="h-9 gap-2 bg-white/5 hover:bg-white/10"
-											onclick={() => openUploadDialog(groupName)}
+											onclick={() => openUploadDialog(groupId)}
 										>
 											<UploadCloud class="h-4 w-4" />
 											<span class="hidden md:inline-flex">Ladda upp</span>
@@ -550,21 +511,24 @@
 												align="end"
 											>
 												<DropdownMenu.Label>Säkerhet</DropdownMenu.Label>
-												{#if isSecure(groupName)}
+												{#if groupData.token}
 													<DropdownMenu.Item
-														onclick={() => requestTokenAction(groupName, 'generate')}
+														onclick={() =>
+															requestTokenAction(groupId, groupData.name, 'generate', true)}
 													>
 														<RefreshCw class="mr-2 h-4 w-4" /> Generera ny token
 													</DropdownMenu.Item>
 													<DropdownMenu.Item
 														class="text-red-400 hover:text-red-300"
-														onclick={() => requestTokenAction(groupName, 'delete')}
+														onclick={() =>
+															requestTokenAction(groupId, groupData.name, 'delete', true)}
 													>
 														<Unlock class="mr-2 h-4 w-4" /> Ta bort skydd
 													</DropdownMenu.Item>
 												{:else}
 													<DropdownMenu.Item
-														onclick={() => requestTokenAction(groupName, 'generate')}
+														onclick={() =>
+															requestTokenAction(groupId, groupData.name, 'generate', false)}
 													>
 														<Lock class="mr-2 h-4 w-4" /> Generera ny token
 													</DropdownMenu.Item>
@@ -572,13 +536,13 @@
 												<DropdownMenu.Separator />
 												<DropdownMenu.Label>Grupp</DropdownMenu.Label>
 												<DropdownMenu.Item
-													onclick={() => openRenameDialog(groupName, groupName, 'group')}
+													onclick={() => openRenameDialog(groupId, groupData.name, 'group')}
 												>
 													<Edit2 class="mr-2 h-4 w-4" /> Byt namn
 												</DropdownMenu.Item>
 												<DropdownMenu.Item
 													class="text-red-400 hover:text-red-300"
-													onclick={() => requestDelete(groupName, '')}
+													onclick={() => requestDelete(groupId, '', groupData.name)}
 												>
 													<Trash2 class="mr-2 h-4 w-4" /> Ta bort grupp
 												</DropdownMenu.Item>
@@ -591,18 +555,23 @@
 							<Card.Content class="p-0">
 								<Table.Root>
 									<Table.Body>
-										{#each pjs as pj}
+										{#each groupData.projects as pj}
 											<Table.Row
 												class="group/row border-white/5 transition-colors hover:bg-white/2"
 											>
 												<Table.Cell class="py-3 pl-6 font-medium">
 													<div class="flex items-center gap-3">
 														<div
-															class="rounded bg-primary/10 p-1.5 text-primary transition-colors group-hover/row:bg-primary/20"
+															class="rounded bg-blue-500/10 p-1.5 text-blue-400 transition-colors group-hover/row:bg-blue-500/20"
 														>
 															<FileJson class="h-4 w-4" />
 														</div>
-														<span class="text-base">{decodeURIComponent(pj)}</span>
+														<div class="flex items-center gap-2">
+															<span class="text-base">{pj.name}</span>
+															{#if groupData.token}
+																<Lock class="h-3 w-3 text-amber-500" />
+															{/if}
+														</div>
 													</div>
 												</Table.Cell>
 												<Table.Cell class="py-3 pr-6 text-right">
@@ -613,11 +582,11 @@
 															size="sm"
 															variant="ghost"
 															class="h-8 gap-2 hover:bg-primary/10 hover:text-primary"
-															href={getTourUrl(groupName, pj)}
+															href={getTourUrl(groupId, pj.folder, groupData.token)}
 															target="_blank"
 														>
 															<ExternalLink class="h-3.5 w-3.5" />
-															<span class="hidden md:inline-flex">Öppna</span>
+															Öppna
 														</Button>
 
 														<div class="mx-1 h-4 w-px bg-white/10"></div>
@@ -626,7 +595,7 @@
 															variant="ghost"
 															size="icon"
 															class="h-8 w-8 text-white/40 hover:text-white"
-															onclick={() => openRenameDialog(groupName, pj, 'project')}
+															onclick={() => openRenameDialog(groupId, pj.name, 'project')}
 															title="Byt namn"
 														>
 															<Edit2 class="h-3.5 w-3.5" />
@@ -635,7 +604,7 @@
 															variant="ghost"
 															size="icon"
 															class="h-8 w-8 text-white/40 hover:text-red-400"
-															onclick={() => requestDelete(groupName, pj)}
+															onclick={() => requestDelete(groupId, pj.name, pj.name)}
 															title="Ta bort"
 														>
 															<Trash2 class="h-3.5 w-3.5" />
@@ -644,7 +613,7 @@
 												</Table.Cell>
 											</Table.Row>
 										{/each}
-										{#if pjs.length === 0}
+										{#if groupData.projects.length === 0}
 											<Table.Row>
 												<Table.Cell colspan={2} class="h-24 text-center text-white/30 italic">
 													Inga projekt i denna grupp.
@@ -818,7 +787,7 @@
 <Dialog.Root bind:open={uploadDialogOpen}>
 	<Dialog.Content class="rounded-2xl border-white/10 bg-[#1a1f2e] text-white">
 		<Dialog.Header>
-			<Dialog.Title>Ladda upp projekt till {decodeURIComponent(uploadTargetGroup)}</Dialog.Title>
+			<Dialog.Title>Ladda upp projekt till {uploadTargetName}</Dialog.Title>
 			<Dialog.Description class="text-white/50">
 				Välj en ZIP-fil. Projektmappen skapas automatiskt baserat på filnamnet.
 			</Dialog.Description>

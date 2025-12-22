@@ -1,35 +1,30 @@
 <?php
 // api/generate_token.php
 require_once 'auth_check.php';
-
-$dataFile = __DIR__ . '/project_auth_data.php';
+require_once 'data_helper.php'; // Use helper
 
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
-    $project = trim($input['project_name'] ?? $_POST['project_name'] ?? '');
+    // Frontend sends 'project_name' but it refers to Group Name
+    $groupName = trim($input['project_name'] ?? $_POST['project_name'] ?? '');
     $action = $input['action'] ?? $_POST['action'] ?? ''; // 'generate', 'delete', 'get'
 
-    if (empty($project)) {
+    if (empty($groupName)) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Ogiltigt projektnamn.']);
+        echo json_encode(['success' => false, 'message' => 'Ogiltigt gruppnamn.']);
         exit;
     }
     
-    // Ensure we work with the encoded name (keys in auth file must be matching FS/URL)
-    // Try to detect if it's already encoded? rawurlencode encodes %. 
-    // Ideally frontend sends raw and we encode here.
-    // If frontend sends encoded, double encoding is bad.
-    // Let's assume frontend sends raw (standard JSON) and we enforce encoding here.
-    // But wait, if I have a project "100% Real", raw is "100% Real", encoded "100%25 Real".
-    // If I just assume raw -> rawurlencode.
-    $project = rawurlencode($project);
-
-    $currentData = [];
-    if (file_exists($dataFile)) {
-        $currentData = require $dataFile;
-        if (!is_array($currentData)) $currentData = [];
+    $projectsData = loadProjects();
+    
+    // Check if group exists
+    if (!isset($projectsData['groups'][$groupName])) {
+        // Group not found in new system
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => 'Gruppen hittades inte.']);
+        exit;
     }
 
     $token = null;
@@ -37,30 +32,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $msg = "";
 
     if ($action === 'delete') {
-        unset($currentData[$project]);
+        // Remove token
+        // In new structure, should we set it to null or empty string?
+        // Or keep it but frontend treats it as "unprotected"?
+        // But logic says "isProtected" if token exists.
+        // Actually earlier assumption: All groups have tokens.
+        // If user wants to "remove protection", maybe we just delete the token key?
+        // But shared_group might fail if it expects token?
+        // Let's assume protection is optional now.
+        $projectsData['groups'][$groupName]['token'] = null; // or unset
+        unset($projectsData['groups'][$groupName]['token']);
+        
         $msg = "Skydd borttaget. Länken är nu ogiltig.";
     } elseif ($action === 'generate') {
-        try {
-            $token = bin2hex(random_bytes(16));
-        } catch (Exception $e) {
-            $token = bin2hex(openssl_random_pseudo_bytes(16));
-        }
+        $token = generateToken(); // Use helper
         $created = date('Y-m-d H:i');
-        $currentData[$project] = [
-            'token' => $token,
-            'created' => $created
-        ];
+        
+        $projectsData['groups'][$groupName]['token'] = $token;
+        // Maybe update 'created' date of token too? Or group?
+        // Let's just update token.
+        
+        // If we want to track when token was created, we might need a separate field like 'token_created'
+        // Legacy returned 'created'.
+        // Let's assume we can add 'token_created' if needed, or just return group created time.
+        // For now, let's keep it simple.
+        
         $msg = "Ny länk genererad!";
     } elseif ($action === 'get') {
-        if (isset($currentData[$project])) {
-            echo json_encode([
-                'success' => true, 
-                'token' => $currentData[$project]['token'] ?? null, 
-                'created' => $currentData[$project]['created'] ?? null
-            ]);
-        } else {
-            echo json_encode(['success' => true, 'token' => null]);
-        }
+        $gInfo = $projectsData['groups'][$groupName];
+        echo json_encode([
+            'success' => true, 
+            'token' => $gInfo['token'] ?? null, 
+            'created' => $gInfo['created'] ?? null // This is group created time usually
+        ]);
         exit;
     } else {
         http_response_code(400);
@@ -68,24 +72,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Save back to file
-    $export = var_export($currentData, true);
-    $content = "<?php\nreturn " . $export . ";\n";
-    
-    if (file_put_contents($dataFile, $content, LOCK_EX)) {
-        if (function_exists('opcache_invalidate')) {
-            opcache_invalidate($dataFile, true);
-        }
-        echo json_encode([
-            'success' => true, 
-            'message' => $msg,
-            'token' => $token,
-            'created' => $created
-        ]);
-    } else {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Kunde inte spara till fil.']);
-    }
+    // Save
+    saveProjects($projectsData);
+
+    echo json_encode([
+        'success' => true, 
+        'message' => $msg,
+        'token' => $token,
+        'created' => $created
+    ]);
+
 } else {
     http_response_code(405);
     echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);

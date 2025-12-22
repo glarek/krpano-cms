@@ -1,6 +1,7 @@
 <?php
 // api/upload.php
 require_once 'auth_check.php';
+require_once 'data_helper.php';
 
 header('Content-Type: application/json');
 
@@ -20,7 +21,6 @@ if (empty($group)) {
 if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
     http_response_code(400);
     $msg = 'Ingen fil uppladdad eller fel vid uppladdning.';
-    // Add specific error messages if needed based on error code
     echo json_encode(['success' => false, 'message' => $msg]);
     exit;
 }
@@ -35,16 +35,50 @@ if ($ext !== 'zip') {
     exit;
 }
 
-// Sanitize project name using rawurlencode
-$projectName = rawurlencode($filename);
-// Encode group name to match filesystem
-$group = rawurlencode($group);
+// Use raw filename as project name (no url encoding)
+$projectName = $filename;
 
-$targetDir = __DIR__ . '/../projekt/' . $group . '/' . $projectName;
+// Load existing projects data
+$projectsData = loadProjects();
 
-if (is_dir($targetDir)) {
-    http_response_code(409); // Conflict
+// Check existence
+if (isset($projectsData['groups'][$group]['projects'][$projectName])) {
+    http_response_code(409);
     echo json_encode(['success' => false, 'message' => 'Ett projekt med detta namn finns redan.']);
+    exit;
+}
+
+// Get Group Info
+if (!isset($projectsData['groups'][$group])) {
+    // Group must exist (created via create_group)
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Gruppen finns inte.']);
+    exit;
+}
+
+$groupId = $group;
+$groupPath = __DIR__ . '/../projekt/' . $groupId;
+
+// Generate unique folder ID for project
+$newId = generateUniqueProjectId($projectsData);
+$newToken = generateToken();
+
+$targetDir = $groupPath . '/' . $newId;
+// No need to check group dir creation, assume it exists or fail.
+if (!is_dir($groupPath)) {
+     // Wait, maybe we should create it if missing (recovery)?
+     // The ID is in the DB.
+     if (!mkdir($groupPath, 0755, true)) {
+         http_response_code(500);
+         echo json_encode(['success' => false, 'message' => 'Grupp-mappen saknas på disk och kunde inte skapas.']);
+         exit;
+     }
+}
+
+// Defensive check (should be unique)
+if (is_dir($targetDir)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Internt fel: ID-kollision. Försök igen.']);
     exit;
 }
 
@@ -58,6 +92,19 @@ if ($zip->open($file['tmp_name']) === TRUE) {
 
     $zip->extractTo($targetDir);
     $zip->close();
+
+    // Update data array
+    if (!isset($projectsData['groups'][$group]['projects'])) {
+        $projectsData['groups'][$group]['projects'] = [];
+    }
+    
+    $projectsData['groups'][$group]['projects'][$projectName] = [
+        'folder' => $newId,
+        'token' => $newToken,
+        'created' => date('Y-m-d H:i')
+    ];
+    
+    saveProjects($projectsData);
 
     echo json_encode(['success' => true, 'message' => 'Projekt uppladdat och skapat!']);
 } else {

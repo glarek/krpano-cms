@@ -120,7 +120,7 @@
 											<Eye
 												class="h-4 w-4 text-white/20 transition-transform group-hover/row:scale-110 group-hover/row:text-primary"
 											/>
-											<span class="text-lg font-medium">{decodeURIComponent(pj)}</span>
+											<span class="text-lg font-medium">{pj.name}</span>
 										</div>
 									</Table.Cell>
 									<Table.Cell class="pr-8 text-right">
@@ -128,7 +128,7 @@
 											variant="secondary"
 											size="sm"
 											class="bg-white/10 text-white hover:bg-white/20"
-											href={getTourUrl(pj)}
+											href={getTourUrl(pj.folder)}
 											target="_blank"
 										>
 											Öppna

@@ -1,40 +1,60 @@
 <?php
 // api/dashboard.php
 require_once 'auth_check.php';
+require_once 'data_helper.php';
 
 header('Content-Type: application/json');
 
 $projectDir = __DIR__ . '/../projekt/';
-$groups = [];
-$rootProjects = [];
-
 if (!is_dir($projectDir)) {
     mkdir($projectDir, 0755, true);
 }
 
-$items = scandir($projectDir);
-foreach ($items as $item) {
-    if ($item === '.' || $item === '..') continue;
-    $path = $projectDir . $item;
-    
-    if (is_dir($path)) {
-        $isProject = false;
-        if (file_exists($path . '/tour.html') || file_exists($path . '/tour.xml')) {
-            $isProject = true;
-        }
+// Load Projects Data
+$projectsData = loadProjects();
 
-        if ($isProject) {
-            $rootProjects[] = $item;
-        } else {
-            $subItems = scandir($path);
-            $groupProjects = [];
-            foreach ($subItems as $sub) {
-                if ($sub === '.' || $sub === '..') continue;
-                if (is_dir($path . '/' . $sub)) {
-                    $groupProjects[] = $sub;
+// Iterate over 'groups' in projectsData (Key is ID now)
+$groups = [];
+if (isset($projectsData['groups'])) {
+    foreach ($projectsData['groups'] as $groupId => $groupInfo) {
+        $pjs = [];
+        if (isset($groupInfo['projects'])) {
+            foreach ($groupInfo['projects'] as $pName => $pData) {
+                if (isset($pData['folder'])) {
+                    $pjs[] = [
+                        'name' => $pName,
+                        'groupId' => $groupId, // Use key as ID
+                        'folder' => $pData['folder'],
+                        'token' => $pData['token'] ?? null,
+                        'created' => $pData['created'] ?? null
+                    ];
                 }
             }
-            $groups[$item] = $groupProjects;
+        }
+        
+        // New Response Structure: Key = ID. Value = Object with name & projects.
+        $groups[$groupId] = [
+            'name' => $groupInfo['name'] ?? $groupId, // Fallback if name missing
+            'projects' => $pjs,
+            'token' => $groupInfo['token'] ?? null,
+            'created' => $groupInfo['created'] ?? null
+        ];
+    }
+}
+
+// Polyfill 'authData'
+$authData = [];
+if (isset($projectsData['groups'])) {
+    foreach ($projectsData['groups'] as $gId => $gInfo) {
+        if (isset($gInfo['token'])) {
+            $authData[$gId] = [
+                'token' => $gInfo['token'],
+                'created' => $gInfo['created'] ?? ''
+            ];
+             // Register Name too for safety
+             if (isset($gInfo['name'])) {
+                 $authData[$gInfo['name']] = $authData[$gId];
+             }
         }
     }
 }
@@ -55,17 +75,10 @@ $maxPost = parse_size(ini_get('post_max_size'));
 $maxBytes = min($maxUpload, $maxPost);
 $maxMb = floor($maxBytes / 1024 / 1024);
 
-// Load Auth Data
-$authFile = __DIR__ . '/project_auth_data.php';
-$authData = [];
-if (file_exists($authFile)) {
-    $authData = require $authFile;
-}
-
 echo json_encode([
     'success' => true,
     'groups' => $groups,
-    'rootProjects' => $rootProjects,
+    'rootProjects' => [], // Empty/Deprecated
     'authData' => $authData,
     'stats' => [
         'maxUploadMb' => $maxMb,
