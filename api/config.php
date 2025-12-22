@@ -6,10 +6,12 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once __DIR__ . '/data_helper.php';
+
 /**
  * Load Mutable Admin Credentials
  */
-$credsFile = __DIR__ . '/admin_creds.php';
+$credsFile = getConfigPath() . '/admin_creds.php';
 $username = 'admin';
 $hash = '$2y$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa'; // default: password
 

@@ -57,7 +57,8 @@ if (!isset($projectsData['groups'][$group])) {
 }
 
 $groupId = $group;
-$groupPath = __DIR__ . '/../projekt/' . $groupId;
+$storageRoot = getStoragePath();
+$groupPath = $storageRoot . '/' . $groupId;
 
 // Generate unique folder ID for project
 $newId = generateUniqueProjectId($projectsData);

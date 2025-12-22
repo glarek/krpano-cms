@@ -11,8 +11,14 @@ if (strpos($file, '..') !== false) {
     exit('Access Denied');
 }
 
-$baseDir = __DIR__ . '/../projekt/';
+// Hardcoded path replaced with dynamic helper
+$baseDir = getStoragePath() . '/';
 $fullPath = $baseDir . $file;
+
+// FORCE NO CACHE - Crucial for security so the browser asks PHP every time
+header("Cache-Control: private, no-cache, no-store, must-revalidate");
+header("Pragma: no-cache");
+header("Expires: 0");
 
 // 2. Extract Group ID (first segment)
 // Path: GROUP_ID/PROJECT_FOLDER/file.ext

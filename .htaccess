@@ -1,0 +1,4 @@
+RewriteEngine On
+
+# Route /projekt/ requests to the Auth Proxy
+RewriteRule ^projekt/(.*)$ api/auth_proxy.php?file=$1 [QSA,L]

@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
      exit;
 }
 
-$baseDir = __DIR__ . '/../projekt/';
+$baseDir = getStoragePath() . '/';
 $projectsData = loadProjects();
 
 // Helper for finding path
@@ -65,7 +65,7 @@ if ($group && $project) {
         $info = $projectsData['groups'][$group]['projects'][$project];
         $groupId = $group;
         
-        $targetDir = __DIR__ . '/../projekt/' . $groupId . '/' . $info['folder'];
+        $targetDir = $baseDir . $groupId . '/' . $info['folder'];
         
         // Remove from array immediately? Or after delete success?
         // Let's assume delete success logic below handles array cleanup via flags or we do it after.
@@ -79,7 +79,7 @@ if ($group && $project) {
     // Delete Group
     if (isset($projectsData['groups'][$group])) {
         $groupId = $group;
-        $targetDir = __DIR__ . '/../projekt/' . $groupId;
+        $targetDir = $baseDir . $groupId;
     } else {
         http_response_code(404);
         echo json_encode(['success' => false, 'message' => "Gruppen hittades inte i registret."]);

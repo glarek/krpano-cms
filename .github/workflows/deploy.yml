@@ -27,11 +27,11 @@ jobs:
           cp -r api build/
           cp -r img build/
 
-          # Setup projekt directory with .htaccess
-          mkdir -p build/projekt
-          cp projekt/.htaccess build/projekt/
+          # Copy root .htaccess
+          cp .htaccess build/
 
           # Remove files we don't want to overwrite in production
+          # (These should now be in secure_projects/ but strictly speaking we don't deploy them to public_html/api anyway if ignored locally, but safe to keep removal)
           rm -f build/api/project_auth_data.php
           rm -f build/api/projects_data.php
           rm -f build/api/admin_creds.php
@@ -44,11 +44,11 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./build/
-          server-dir: /
+          server-dir: /public_html/
           dangerous-clean-slate: false
           exclude: |
             projekt/**
-            !projekt/.htaccess
+            secure_projects/**
             api/project_auth_data.php
             api/projects_data.php
             api/admin_creds.php

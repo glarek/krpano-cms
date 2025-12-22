@@ -1,7 +1,7 @@
 node_modules
 start_server.bat
 router.php
-.htaccess
+
 
 # Output
 .output
@@ -34,3 +34,8 @@ Thumbs.db
 # Project folders
 projekt/*/
 !projekt/.htaccess
+!test_view/.htaccess
+
+# Secure Storage
+secure_projects/
+secure_config/

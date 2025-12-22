@@ -23,7 +23,7 @@ if (empty($project) || empty($baseGroup) || empty($targetGroup)) {
 }
 
 $projectsData = loadProjects();
-$baseDir = __DIR__ . '/../projekt/';
+$baseDir = getStoragePath() . '/';
 
 function findPathForMove($base, $name) {
     if (is_dir($base . $name)) return $base . $name;
@@ -39,7 +39,7 @@ if (isset($projectsData['groups'][$baseGroup]['projects'][$project])) {
     $info = $projectsData['groups'][$baseGroup]['projects'][$project];
     $baseGroupId = $baseGroup;
     
-    $sourcePath = __DIR__ . '/../projekt/' . $baseGroupId . '/' . $info['folder'];
+    $sourcePath = $baseDir . $baseGroupId . '/' . $info['folder'];
     $projectInfo = $info;
 } else {
     http_response_code(404);

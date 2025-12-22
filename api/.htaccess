@@ -1,0 +1,14 @@
+# API Configuration
+
+# Enable large file uploads for this directory and subdirectories
+php_value upload_max_filesize 512M
+php_value post_max_size 512M
+php_value memory_limit 512M
+php_value max_execution_time 350
+php_value max_input_time 1000
+
+# Ensure JSON content type just in case (optional, handled by scripts)
+# AddType application/json .php
+
+# Disable directory listing
+Options -Indexes

@@ -3,7 +3,13 @@
 
 // Define the path to the projects data file
 if (!defined('PROJECTS_DATA_FILE')) {
-    define('PROJECTS_DATA_FILE', __DIR__ . '/projects_data.php');
+    // Use getStoragePath() but define it later? 
+    // Problem: getStoragePath is defined below. 
+    // PHP functions are hoisted, but constants? 
+    // Constants are defined at runtime. 
+    // We should probably move the define INSIDE loadProjects or just use a function.
+    // Or just call getStoragePath() here? Yes, functions are hoisted.
+    define('PROJECTS_DATA_FILE', getConfigPath() . '/projects_data.php');
 }
 
 /**
@@ -79,4 +85,57 @@ function generateUniqueGroupId($data) {
  */
 function generateToken() {
     return bin2hex(random_bytes(8));
+}
+
+/**
+ * Resolves the secure storage path dynamically.
+ * Checks:
+ * 1. ../secure_projects (Local Development)
+ * 2. ../../secure_projects (Production - Sibling to public_html)
+ */
+function getStoragePath() {
+    static $path = null;
+    if ($path !== null) return $path; // Cache result
+
+    $candidates = [
+        __DIR__ . '/../secure_projects',
+        __DIR__ . '/../../secure_projects'
+    ];
+
+    foreach ($candidates as $candidate) {
+        if (is_dir($candidate)) {
+            $path = realpath($candidate);
+            return $path;
+        }
+    }
+
+    // Fallback: If neither exists (e.g. first run locally), default to local structure
+    // But caller might need to mkdir.
+    return __DIR__ . '/../secure_projects';
+}
+
+/**
+ * Resolves the secure config path dynamically.
+ * Checks:
+ * 1. ../secure_config (Local Development)
+ * 2. ../../secure_config (Production - Sibling to public_html)
+ */
+function getConfigPath() {
+    static $path = null;
+    if ($path !== null) return $path; // Cache result
+
+    $candidates = [
+        __DIR__ . '/../secure_config',
+        __DIR__ . '/../../secure_config'
+    ];
+
+    foreach ($candidates as $candidate) {
+        if (is_dir($candidate)) {
+            $path = realpath($candidate);
+            return $path;
+        }
+    }
+
+    // Fallback
+    return __DIR__ . '/../secure_config';
 }
