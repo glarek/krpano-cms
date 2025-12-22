@@ -20,8 +20,11 @@ if (!$groupId || !isset($projectsData['groups'][$groupId])) {
 $groupInfo = $projectsData['groups'][$groupId];
 
 // Validate Token
+// Validate Token
 $validToken = $groupInfo['token'] ?? '';
-if ($token !== $validToken) {
+$isProtected = !empty($validToken);
+
+if ($isProtected && $token !== $validToken) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Ogiltig token.']);
     exit;
@@ -44,5 +47,6 @@ echo json_encode([
     'success' => true,
     'group_name' => $groupInfo['name'] ?? $groupId,
     'group_id' => $groupId,
+    'is_protected' => $isProtected,
     'projects' => $projectsList
 ]);
