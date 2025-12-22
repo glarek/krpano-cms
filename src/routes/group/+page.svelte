@@ -221,6 +221,14 @@
 	}
 </script>
 
+<svelte:head>
+	<title>{groupName ? groupName.replace(/-/g, ' ') + ' | ' : ''}GRIT 360-viewer</title>
+	<meta
+		name="description"
+		content="Manage projects in {groupName ? groupName.replace(/-/g, ' ') : 'group'}."
+	/>
+</svelte:head>
+
 {#if loading}
 	<div class="fixed inset-0 flex items-center justify-center bg-[#0b0f19]">
 		<div class="flex flex-col items-center gap-4">

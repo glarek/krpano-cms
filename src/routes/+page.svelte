@@ -324,6 +324,11 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Dashboard | GRIT 360-viewer</title>
+	<meta name="description" content="Manage your 360 projects, groups, and settings." />
+</svelte:head>
+
 {#if data.serverOffline}
 	<div class="fixed inset-0 flex items-center justify-center bg-[#0b0f19] text-white">
 		<div class="flex max-w-md flex-col items-center gap-6 p-6 text-center">

@@ -40,6 +40,11 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Login | GRIT 360-viewer</title>
+	<meta name="description" content="Secure admin login for GRIT 360-viewer." />
+</svelte:head>
+
 <div
 	class="font-outfit fixed inset-0 flex items-center justify-center overflow-hidden bg-[#0b0f19] p-4"
 >
@@ -50,7 +55,7 @@
 
 	<div class="relative w-full max-w-[420px]">
 		<Card.Root
-			class="overflow-hidden rounded-[24px] border-white/10 bg-white/[0.03] shadow-2xl backdrop-blur-2xl"
+			class="overflow-hidden rounded-[24px] border-white/10 bg-white/3 shadow-2xl backdrop-blur-2xl"
 		>
 			<Card.Header class="space-y-4 pt-10 pb-6 text-center">
 				<div class="mb-4 flex justify-center">
