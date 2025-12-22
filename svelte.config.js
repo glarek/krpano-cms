@@ -6,6 +6,9 @@ const config = {
 		adapter: adapter({
 			fallback: 'index.html' // Dependent on your host, usually index.html or 404.html
 		}),
+		paths: {
+			relative: false
+		},
 		alias: {
 			'@/*': './path/to/lib/*',
 			$src: 'src',
