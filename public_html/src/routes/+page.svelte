@@ -452,8 +452,8 @@
 						class="rounded-xl bg-primary hover:bg-primary/90"
 						onclick={() => (createGroupDialogOpen = true)}
 					>
-						<Plus class="mr-2 h-4 w-4" />
-						Skapa Grupp
+						<Plus class="h-4 w-4" />
+						<span class="md:inline-flex hidden">Skapa Grupp</span>
 					</Button>
 				</div>
 
@@ -469,10 +469,9 @@
 											</Card.Title>
 											{#if groupData.token}
 												<div
-													class="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-500"
+													class=" aspect-square flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-500"
 												>
-													<Lock class="h-3 w-3" />
-													<span class="hidden md:inline-flex">Skyddad</span>
+													<Lock class="h-4 w-4" />
 												</div>
 											{/if}
 										</div>
@@ -567,15 +566,13 @@
 												<Table.Cell class="py-3 pl-6 font-medium">
 													<div class="flex items-center gap-3">
 														<div
-															class="rounded bg-blue-500/10 p-1.5 text-blue-400 transition-colors group-hover/row:bg-blue-500/20"
+															class="min-w-fit aspect-square rounded bg-blue-500/10 p-1.5 text-blue-400 transition-colors group-hover/row:bg-blue-500/20"
 														>
 															<FileJson class="h-4 w-4" />
 														</div>
-														<div class="flex items-center gap-2">
+														<div class="min-w-fit flex items-center gap-2">
 															<span class="text-base">{pj.name}</span>
-															{#if groupData.token}
-																<Lock class="h-3 w-3 text-amber-500" />
-															{/if}
+							
 														</div>
 													</div>
 												</Table.Cell>
@@ -591,7 +588,7 @@
 															target="_blank"
 														>
 															<ExternalLink class="h-3.5 w-3.5" />
-															Öppna
+															<span class="md:inline-flex hidden">Öppna</span>
 														</Button>
 
 														<div class="mx-1 h-4 w-px bg-white/10"></div>

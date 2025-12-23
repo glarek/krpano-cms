@@ -13,25 +13,29 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: public_html/package-lock.json
 
       - name: Install dependencies
+        working-directory: public_html
         run: npm ci
 
       - name: Build SvelteKit app
+        working-directory: public_html
         run: npm run build
 
       - name: Prepare production files
+        working-directory: public_html
         run: |
           cp -r api build/
-          cp -r img build/
+          # img folder might not exist if it was moved/merged, but if it exists, copy it.
+          if [ -d "img" ]; then cp -r img build/; fi
 
-          # Copy root .htaccess
+          # Copy root .htaccess (now in public_html)
           cp .htaccess build/
 
           # Remove files we don't want to overwrite in production
-          # (These should now be in secure_projects/ but strictly speaking we don't deploy them to public_html/api anyway if ignored locally, but safe to keep removal)
           rm -f build/api/project_auth_data.php
           rm -f build/api/projects_data.php
           rm -f build/api/admin_creds.php
@@ -43,7 +47,7 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./build/
+          local-dir: ./public_html/build/
           server-dir: /public_html/
           dangerous-clean-slate: false
           exclude: |

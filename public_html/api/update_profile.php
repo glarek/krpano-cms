@@ -32,7 +32,7 @@ if (empty($newUser)) {
 }
 
 // Read current creds (or defaults) to initialize array
-$credsFile = __DIR__ . '/admin_creds.php';
+$credsFile = getConfigPath() . '/admin_creds.php';
 $currentCreds = [
     'username' => 'admin',
     'hash' => '$2y$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa' 

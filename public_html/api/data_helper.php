@@ -94,24 +94,10 @@ function generateToken() {
  * 2. ../../secure_projects (Production - Sibling to public_html)
  */
 function getStoragePath() {
-    static $path = null;
-    if ($path !== null) return $path; // Cache result
-
-    $candidates = [
-        __DIR__ . '/../secure_projects',
-        __DIR__ . '/../../secure_projects'
-    ];
-
-    foreach ($candidates as $candidate) {
-        if (is_dir($candidate)) {
-            $path = realpath($candidate);
-            return $path;
-        }
-    }
-
-    // Fallback: If neither exists (e.g. first run locally), default to local structure
-    // But caller might need to mkdir.
-    return __DIR__ . '/../secure_projects';
+    // In the new structure, api is in public_html/api
+    // secure_projects is in root/secure_projects
+    // So distinct path is ../../secure_projects
+    return realpath(__DIR__ . '/../../secure_projects');
 }
 
 /**
@@ -121,21 +107,8 @@ function getStoragePath() {
  * 2. ../../secure_config (Production - Sibling to public_html)
  */
 function getConfigPath() {
-    static $path = null;
-    if ($path !== null) return $path; // Cache result
-
-    $candidates = [
-        __DIR__ . '/../secure_config',
-        __DIR__ . '/../../secure_config'
-    ];
-
-    foreach ($candidates as $candidate) {
-        if (is_dir($candidate)) {
-            $path = realpath($candidate);
-            return $path;
-        }
-    }
-
-    // Fallback
-    return __DIR__ . '/../secure_config';
+    // In the new structure, api is in public_html/api
+    // secure_config is in root/secure_config
+    // So distinct path is ../../secure_config
+    return realpath(__DIR__ . '/../../secure_config');
 }

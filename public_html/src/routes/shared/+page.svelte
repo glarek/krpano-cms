@@ -5,7 +5,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
-	import { Folder, ExternalLink, Lock, Eye, Share2, Smartphone } from '@lucide/svelte';
+	import { Folder, ExternalLink, Lock, Eye, Share2, Smartphone, Download, Building2 } from '@lucide/svelte';
 	import { qr } from '@svelte-put/qr/svg';
 	import { createQrSvgString, createQrSvgDataUrl } from '@svelte-put/qr';
 
@@ -181,8 +181,7 @@
 							{decodeURIComponent(groupName)}
 						</h2>
 						<p class="mt-4 max-w-2xl text-lg leading-relaxed text-white/40">
-							Här hittar du alla publicerade projekt för denna grupp. Klicka på 'Öppna' för att
-							starta en virtuell visning i en ny flik.
+							Här hittar du alla anslutna 360-projekt. Klicka på projektet för att öppna det.
 						</p>
 					</div>
 
@@ -191,14 +190,14 @@
 						{#each projects as pj, i}
 							<div
 								in:fly={{ y: 20, duration: 500, delay: 200 + i * 50 }}
-								class="group relative overflow-hidden rounded-xl border border-white/5 bg-white/5 p-4 transition-all hover:border-white/10 hover:bg-white/10 hover:shadow-2xl hover:shadow-primary/5"
+								class="group relative overflow-hidden rounded-lg border border-white/5 bg-white/5 p-3 transition-all hover:border-white/10 hover:bg-white/10 hover:shadow-2xl hover:shadow-primary/5"
 							>
 								<div class="flex items-center justify-between gap-4">
 									<div class="flex items-center gap-4">
 										<div
-											class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-white/5 bg-gradient-to-br from-white/10 to-transparent transition-colors group-hover:border-primary/20 group-hover:from-primary/10"
+											class="flex h-12 w-12 bg-gray-200/5 shrink-0 justify-center items-center rounded-md "
 										>
-											<Eye
+											<Building2
 												class="h-5 w-5 text-white/40 transition-colors group-hover:text-primary"
 											/>
 										</div>
@@ -210,8 +209,7 @@
 											</h3>
 											<p class="flex items-center gap-2 text-sm text-white/30">
 												Virtuell Visning
-												<span class="inline-block h-1 w-1 rounded-full bg-white/20"></span>
-												Interaktiv
+											
 											</p>
 										</div>
 									</div>
@@ -264,16 +262,15 @@
 							<div class="relative rounded-md bg-white p-2 shadow-xl">
 								<svg width="100%" use:qr={QRconfig} />
 							</div>
-							<div class="text-center">
-								<p class="text-sm font-medium text-white">Skanna för att öppna i mobilen</p>
-								<p class="mt-1 text-xs text-white/40">Använd kameran eller en QR-läsare</p>
+							<div class="flex flex-row items-center gap-2">
+								<p class="text-sm font-medium text-white">Skanna för att öppna i mobilen </p>
 
 								<a
 									href={QRdataURL}
 									download="qr_code.svg"
-									class="mt-4 inline-block rounded-md bg-white/10 p-1 text-[10px] tracking-wider text-white/50 transition-colors hover:text-white/40"
+									class=" text-white/50 transition-colors hover:text-white/40"
 								>
-									Ladda ner QR
+									<Download class="h-4 w-4" />
 								</a>
 							</div>
 

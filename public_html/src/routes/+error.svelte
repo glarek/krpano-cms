@@ -2,7 +2,6 @@
 	import { page } from '$app/stores';
 	import { Button } from '$lib/components/ui/button';
 	import { Home, AlertTriangle } from '@lucide/svelte';
-	import favicon from '$lib/assets/favicon.svg';
 	// Explicitly opt out of layout if desired, but keeping the layout is usually good for nav consistency.
 	// If you want a completely standalone 404 page without the navbar, you would need a +layout.svelte reset or group.
 	// Assuming we want to keep the main layout for now as it provides the background.
