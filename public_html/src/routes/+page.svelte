@@ -9,6 +9,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import axios from 'axios';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import {
@@ -32,7 +33,11 @@
 		Eye,
 		UploadCloud,
 		Settings,
-		User
+		User,
+		Code,
+		FileText,
+		Save,
+		Loader2
 	} from '@lucide/svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
@@ -47,6 +52,14 @@
 	let renameTarget = $state({ group: '', old_name: '', type: 'project' }); // type: 'project' | 'group'
 	let newName = $state('');
 	let newGroupName = $state('');
+
+	// File Editor State
+	let editorTab = $state('rename');
+	let fileContent = $state('');
+	let fileLoading = $state(false);
+	let fileSaving = $state(false);
+	let fileLoaded = $state({ html: false, xml: false });
+	let fileContentCache = $state({ html: '', xml: '' });
 
 	// Confirm Dialog State
 	let confirmDialogOpen = $state(false);
@@ -220,7 +233,74 @@
 	function openRenameDialog(id, currentName, type) {
 		renameTarget = { id, key: type === 'group' ? id : currentName, name: currentName, type };
 		newName = currentName;
+		editorTab = 'rename';
+		fileLoaded = { html: false, xml: false };
+		fileContentCache = { html: '', xml: '' };
+		fileContent = '';
 		renameDialogOpen = true;
+	}
+
+	async function loadTourFile(type) {
+		if (fileLoaded[type]) {
+			fileContent = fileContentCache[type];
+			return;
+		}
+		fileLoading = true;
+		try {
+			const res = await fetch(
+				`/api/get_tour_file.php?group=${encodeURIComponent(renameTarget.id)}&project=${encodeURIComponent(renameTarget.name)}&type=${type}`
+			);
+			const result = await res.json();
+			if (result.success) {
+				fileContentCache[type] = result.content;
+				fileContent = result.content;
+				fileLoaded[type] = true;
+			} else {
+				toast.error(result.message || `Kunde inte ladda ${type}-filen`);
+			}
+		} catch (e) {
+			toast.error('Ett fel uppstod vid laddning av filen');
+		} finally {
+			fileLoading = false;
+		}
+	}
+
+	async function saveTourFile(type) {
+		fileSaving = true;
+		try {
+			const res = await fetch('/api/update_tour_file.php', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					group: renameTarget.id,
+					project: renameTarget.name,
+					type,
+					content: fileContent
+				})
+			});
+			const result = await res.json();
+			if (result.success) {
+				fileContentCache[type] = fileContent;
+				toast.success(`${type.toUpperCase()}-filen sparad`);
+			} else {
+				toast.error(result.message || 'Kunde inte spara filen');
+			}
+		} catch (e) {
+			toast.error('Ett fel uppstod vid sparning');
+		} finally {
+			fileSaving = false;
+		}
+	}
+
+	function handleTabChange(tab) {
+		editorTab = tab;
+		if (tab === 'html' || tab === 'xml') {
+			if (fileLoaded[tab]) {
+				fileContent = fileContentCache[tab];
+			} else {
+				loadTourFile(tab);
+			}
+		}
 	}
 
 	async function handleRename() {
@@ -708,41 +788,167 @@
 	</div>
 {/if}
 
-<!-- Rename Dialog -->
+<!-- Edit / Rename Dialog -->
 <Dialog.Root bind:open={renameDialogOpen}>
-	<Dialog.Content class="rounded-2xl border-white/10 bg-[#1a1f2e] text-white">
+	<Dialog.Content
+		class="rounded-2xl border-white/10 bg-[#1a1f2e] text-white {renameTarget.type === 'project'
+			? 'sm:max-w-2xl'
+			: ''}"
+	>
 		<Dialog.Header>
-			<Dialog.Title>Ändra namn</Dialog.Title>
+			<Dialog.Title>
+				{renameTarget.type === 'group' ? 'Ändra namn' : `Redigera: ${renameTarget.name}`}
+			</Dialog.Title>
 			<Dialog.Description class="text-white/50">
-				Ange ett nytt namn för {renameTarget.type === 'group' ? 'gruppen' : 'projektet'}.
+				{renameTarget.type === 'group'
+					? 'Ange ett nytt namn för gruppen.'
+					: 'Byt namn eller redigera tour-filer.'}
 			</Dialog.Description>
 		</Dialog.Header>
-		<div class="space-y-4 py-4">
-			<div class="space-y-2">
-				<Label for="new-name">Nytt namn</Label>
-				<Input
-					id="new-name"
-					bind:value={newName}
-					class="border-white/10 bg-white/5 text-white"
-					onkeydown={(e) => e.key === 'Enter' && handleRename()}
-				/>
+
+		{#if renameTarget.type === 'group'}
+			<!-- Simple rename for groups -->
+			<div class="space-y-4 py-4">
+				<div class="space-y-2">
+					<Label for="new-name">Nytt namn</Label>
+					<Input
+						id="new-name"
+						bind:value={newName}
+						class="border-white/10 bg-white/5 text-white"
+						onkeydown={(e) => e.key === 'Enter' && handleRename()}
+					/>
+				</div>
 			</div>
-		</div>
-		<Dialog.Footer>
-			<Button variant="ghost" onclick={() => (renameDialogOpen = false)}>Avbryt</Button>
-			<Button
-				class="bg-primary hover:bg-primary/90"
-				onclick={handleRename}
-				disabled={actionLoading}
-			>
-				{#if actionLoading}
-					<div
-						class="border-top-white mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white/20"
-					></div>
-				{/if}
-				Spara ändringar
-			</Button>
-		</Dialog.Footer>
+			<Dialog.Footer>
+				<Button variant="ghost" onclick={() => (renameDialogOpen = false)}>Avbryt</Button>
+				<Button
+					class="bg-primary hover:bg-primary/90"
+					onclick={handleRename}
+					disabled={actionLoading}
+				>
+					{#if actionLoading}
+						<div
+							class="border-top-white mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white/20"
+						></div>
+					{/if}
+					Spara ändringar
+				</Button>
+			</Dialog.Footer>
+		{:else}
+			<!-- Tabbed editor for projects -->
+			<Tabs.Root value={editorTab} onValueChange={handleTabChange}>
+				<Tabs.List class="w-full border-b border-white/10 bg-transparent">
+					<Tabs.Trigger
+						value="rename"
+						class="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/50"
+					>
+						<Edit2 class="mr-2 h-3.5 w-3.5" />
+						Namn
+					</Tabs.Trigger>
+					<Tabs.Trigger
+						value="html"
+						class="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/50"
+					>
+						<FileText class="mr-2 h-3.5 w-3.5" />
+						HTML
+					</Tabs.Trigger>
+					<Tabs.Trigger
+						value="xml"
+						class="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/50"
+					>
+						<Code class="mr-2 h-3.5 w-3.5" />
+						XML
+					</Tabs.Trigger>
+				</Tabs.List>
+
+				<Tabs.Content value="rename" class="space-y-4 pt-4">
+					<div class="space-y-2">
+						<Label for="new-name-project">Nytt namn</Label>
+						<Input
+							id="new-name-project"
+							bind:value={newName}
+							class="border-white/10 bg-white/5 text-white"
+							onkeydown={(e) => e.key === 'Enter' && handleRename()}
+						/>
+					</div>
+					<div class="flex justify-end gap-2">
+						<Button variant="ghost" onclick={() => (renameDialogOpen = false)}>Avbryt</Button>
+						<Button
+							class="bg-primary hover:bg-primary/90"
+							onclick={handleRename}
+							disabled={actionLoading}
+						>
+							{#if actionLoading}
+								<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+							{/if}
+							Spara namn
+						</Button>
+					</div>
+				</Tabs.Content>
+
+				<Tabs.Content value="html" class="space-y-4 pt-4">
+					{#if fileLoading}
+						<div class="flex h-64 items-center justify-center">
+							<Loader2 class="h-6 w-6 animate-spin text-white/40" />
+							<span class="ml-2 text-white/40">Laddar tour.html...</span>
+						</div>
+					{:else}
+						<textarea
+							bind:value={fileContent}
+							oninput={() => (fileContentCache['html'] = fileContent)}
+							class="h-80 w-full resize-y rounded-lg border border-white/10 bg-white/5 p-4 font-mono text-sm text-white/90 placeholder:text-white/30 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
+							spellcheck="false"
+							placeholder="tour.html content..."
+						></textarea>
+						<div class="flex justify-end gap-2">
+							<Button variant="ghost" onclick={() => (renameDialogOpen = false)}>Stäng</Button>
+							<Button
+								class="bg-primary hover:bg-primary/90"
+								onclick={() => saveTourFile('html')}
+								disabled={fileSaving}
+							>
+								{#if fileSaving}
+									<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+								{/if}
+								<Save class="mr-2 h-4 w-4" />
+								Spara HTML
+							</Button>
+						</div>
+					{/if}
+				</Tabs.Content>
+
+				<Tabs.Content value="xml" class="space-y-4 pt-4">
+					{#if fileLoading}
+						<div class="flex h-64 items-center justify-center">
+							<Loader2 class="h-6 w-6 animate-spin text-white/40" />
+							<span class="ml-2 text-white/40">Laddar tour.xml...</span>
+						</div>
+					{:else}
+						<textarea
+							bind:value={fileContent}
+							oninput={() => (fileContentCache['xml'] = fileContent)}
+							class="h-80 w-full resize-y rounded-lg border border-white/10 bg-white/5 p-4 font-mono text-sm text-white/90 placeholder:text-white/30 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
+							spellcheck="false"
+							placeholder="tour.xml content..."
+						></textarea>
+						<div class="flex justify-end gap-2">
+							<Button variant="ghost" onclick={() => (renameDialogOpen = false)}>Stäng</Button>
+							<Button
+								class="bg-primary hover:bg-primary/90"
+								onclick={() => saveTourFile('xml')}
+								disabled={fileSaving}
+							>
+								{#if fileSaving}
+									<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+								{/if}
+								<Save class="mr-2 h-4 w-4" />
+								Spara XML
+							</Button>
+						</div>
+					{/if}
+				</Tabs.Content>
+			</Tabs.Root>
+		{/if}
 	</Dialog.Content>
 </Dialog.Root>
 

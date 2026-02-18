@@ -5,9 +5,10 @@ import { defineConfig } from 'vite';
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 	server: {
+		allowedHosts: ['krpano-cms.test'],
 		proxy: {
-			'/api': 'http://localhost:8000',
-			'/projekt': 'http://localhost:8000'
+			'/api': 'http://krpano-cms.test',
+			'/projekt': 'http://krpano-cms.test'
 		}
 	}
 });
