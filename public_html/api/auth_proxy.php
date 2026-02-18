@@ -64,9 +64,7 @@ if (empty($validToken)) {
 }
 
 if (!$authorized) {
-    http_response_code(403);
-    // Optional: Redirect to login or show simplified error
-    echo "Access Denied. Invalid or missing token.";
+    header("Location: /access-denied");
     exit;
 }
 

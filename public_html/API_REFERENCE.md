@@ -315,3 +315,61 @@ Deletes a single project.
 	"success": true
 }
 ```
+
+---
+
+### Tour Files
+
+Read and update the source files (`tour.html`, `tour.xml`) of a krpano project. These endpoints are **admin-only**.
+
+#### Retrieve a Tour File
+
+`GET /get_tour_file.php`
+
+Returns the raw content of a project's HTML or XML file.
+
+**Parameters**
+
+| Parameter | Type   | Required | Description                                          |
+| :-------- | :----- | :------- | :--------------------------------------------------- |
+| `group`   | string | **Yes**  | The group ID (e.g. `g_aab72153`).                    |
+| `project` | string | **Yes**  | The project name (as stored in the data file).       |
+| `type`    | string | **Yes**  | The file type to retrieve. Allowed: `html` or `xml`. |
+
+**Response**
+
+```json
+{
+	"success": true,
+	"content": "<!DOCTYPE html>...",
+	"filename": "tour.html"
+}
+```
+
+---
+
+#### Update a Tour File
+
+`POST /update_tour_file.php`
+
+Write new content to a project's HTML or XML file. A timestamped `.bak` backup is created automatically before overwriting.
+
+**Parameters (JSON body)**
+
+| Parameter | Type   | Required | Description                                        |
+| :-------- | :----- | :------- | :------------------------------------------------- |
+| `group`   | string | **Yes**  | The group ID (e.g. `g_aab72153`).                  |
+| `project` | string | **Yes**  | The project name (as stored in the data file).     |
+| `type`    | string | **Yes**  | The file type to update. Allowed: `html` or `xml`. |
+| `content` | string | **Yes**  | The new file content.                              |
+
+**Response**
+
+```json
+{
+	"success": true,
+	"message": "File updated successfully.",
+	"filename": "tour.html",
+	"backup": "tour.html.bak.1708243000"
+}
+```
